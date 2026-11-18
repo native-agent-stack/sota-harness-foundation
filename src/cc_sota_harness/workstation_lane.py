@@ -303,3 +303,34 @@ def validate_dual_workstation_manifest(
             errors.append(f"Invalid Orca repo UUID on stationary_noesis_heavy for {r_name}: {r_uuid!r}")
 
     return data, errors
+
+
+_FORBIDDEN_WSL_SHARED_VM_RE = re.compile(
+    r"(?:\bwsl(?:\.exe)?\s+--shutdown\b|\bwsl(?:\.exe)?\s+-(?:t|-terminate|-unregister)\s+sextant\b)",
+    re.IGNORECASE,
+)
+
+
+def enforce_workstation_wsl_and_gateway_guard(
+    command: str = "",
+    env: dict[str, str] | None = None,
+    *,
+    tailscale_serve_gateway_unauthenticated: bool = False,
+) -> None:
+    """Enforce ADR-0021 shared-VM WSL2 isolation, Tailscale gateway auth, and OAuth/gateway separation."""
+    if _FORBIDDEN_WSL_SHARED_VM_RE.search(command):
+        raise PermissionError(
+            "ADR-0021 shared-VM WSL2 guard hard-refused command: never run 'wsl --shutdown' or "
+            "terminate/unregister co-resident 'sextant' on Noesis."
+        )
+    if tailscale_serve_gateway_unauthenticated:
+        raise PermissionError(
+            "ADR-0021 gateway guard hard-refused unauthenticated Tailscale Serve proxy to loopback model gateway."
+        )
+    if env:
+        base_url = env.get("ANTHROPIC_BASE_URL", "").strip()
+        oauth_tok = env.get("CLAUDE_CODE_OAUTH_TOKEN", "").strip()
+        if base_url and oauth_tok:
+            raise PermissionError(
+                "ADR-0021 / ADR-0053 OAuth guard hard-refused pairing ANTHROPIC_BASE_URL with CLAUDE_CODE_OAUTH_TOKEN."
+            )

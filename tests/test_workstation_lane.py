@@ -14,6 +14,7 @@ from cc_sota_harness.workstation_lane import (
     WorkloadKind,
     WorkstationTopologyMode,
     classify_topology_mode,
+    enforce_workstation_wsl_and_gateway_guard,
     portable_thread_budget,
     resolve_workstation_placement,
     validate_dual_workstation_manifest,
@@ -107,4 +108,22 @@ def test_dual_machine_broker_split_brain_hard_refused() -> None:
             tel,
             WorkloadKind.PAPER_BROKER_24X5,
             candidate_broker_host="stationary_noesis_heavy",
+        )
+
+
+def test_adr_0021_wsl_shared_vm_and_gateway_guards() -> None:
+    enforce_workstation_wsl_and_gateway_guard("wsl -d meridian -e pytest -q", {"ANTHROPIC_BASE_URL": "http://127.0.0.1:20128"})
+
+    with pytest.raises(PermissionError, match="wsl --shutdown"):
+        enforce_workstation_wsl_and_gateway_guard("wsl --shutdown")
+
+    with pytest.raises(PermissionError, match="sextant"):
+        enforce_workstation_wsl_and_gateway_guard("wsl.exe --unregister sextant")
+
+    with pytest.raises(PermissionError, match="Tailscale Serve"):
+        enforce_workstation_wsl_and_gateway_guard(tailscale_serve_gateway_unauthenticated=True)
+
+    with pytest.raises(PermissionError, match="CLAUDE_CODE_OAUTH_TOKEN"):
+        enforce_workstation_wsl_and_gateway_guard(
+            env={"ANTHROPIC_BASE_URL": "http://127.0.0.1:20128", "CLAUDE_CODE_OAUTH_TOKEN": "oauth-redacted"}
         )
