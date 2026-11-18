@@ -6,11 +6,13 @@ from cc_sota_harness.compounding_pipeline import (
     PromotionVerdict,
     StrategyLifecycleRecord,
     calibrate_protective_trail_pct,
+    compute_ex_ante_mde_bps,
     empirical_bayes_shrink_edge,
     evaluate_strategy_promotion,
     hlz_t_hurdle,
     validate_broker_target,
     validate_compounding_manifest,
+    validate_legacy_harvest_manifest,
 )
 from cc_sota_harness.gates import (
     ALPACA_PAPER_MAX_RPM,
@@ -26,16 +28,22 @@ from cc_sota_harness.gates import (
     ratchet_short_stop,
 )
 from cc_sota_harness.institutional_frontier import (
+    AUCTION_CONDITION_PRIORITY,
+    CTA_UTP_ISO_CONDITION_CODE,
     DEC6_235_CUTOVER_DATE,
     NEW_YORK,
+    AuctionPrintCandidate,
     PaperPositionGuardianFSM,
     PITSecurityMaster,
     PITSecurityRecord,
     SessionWindowInfo,
     VenueQuote,
     almgren_chriss_sqrt_impact_bps,
+    check_one_writer_symbol_isolation,
+    is_cta_utp_iso_print,
     resolve_245_session_window,
     select_freshest_venue_quote,
+    select_listing_exchange_auction_print,
 )
 from cc_sota_harness.upstream_execution_parity import (
     HFTBACKTEST_PIN,
@@ -45,7 +53,10 @@ from cc_sota_harness.upstream_execution_parity import (
 
 __all__ = [
     "ALPACA_PAPER_MAX_RPM",
+    "AUCTION_CONDITION_PRIORITY",
+    "AuctionPrintCandidate",
     "BrokerTargetConfig",
+    "CTA_UTP_ISO_CONDITION_CODE",
     "DEC6_235_CUTOVER_DATE",
     "HFTBACKTEST_PIN",
     "IBKR_PAPER_MAX_MPM",
@@ -67,15 +78,20 @@ __all__ = [
     "VenueQuote",
     "almgren_chriss_sqrt_impact_bps",
     "calibrate_protective_trail_pct",
+    "check_one_writer_symbol_isolation",
     "check_paper_order_intent",
     "check_study_wall",
+    "compute_ex_ante_mde_bps",
     "empirical_bayes_shrink_edge",
     "evaluate_strategy_promotion",
     "hlz_t_hurdle",
+    "is_cta_utp_iso_print",
     "ratchet_long_stop",
     "ratchet_short_stop",
     "resolve_245_session_window",
     "select_freshest_venue_quote",
+    "select_listing_exchange_auction_print",
     "validate_broker_target",
     "validate_compounding_manifest",
+    "validate_legacy_harvest_manifest",
 ]

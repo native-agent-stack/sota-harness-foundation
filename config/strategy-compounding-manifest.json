@@ -28,7 +28,7 @@
       "native-agent-stack/ecosystem-records"
     ],
     "peerVerifiedCommitShas": {
-      "native-agent-stack/cc-sota-harness": "66d9cf491485ac6e4807e0e4dba413e68cdcba75",
+      "native-agent-stack/cc-sota-harness": "401ee5ecadd21979c975ee1ec3b6783c90899c33",
       "native-agent-stack/.github": "7db7d438",
       "native-agent-stack/native-agent-stack": "4b8ca6208e8b2bb656f662df2708f6a70a3c7830",
       "native-agent-stack/sota-multi-model-workflows": "da0f891d",
@@ -37,7 +37,7 @@
       "native-agent-stack/agy-sota-harness": "7355520330214d7c44511f654047476c980c5884",
       "native-agent-stack/dsh-sota-harness": "980d47a7703e0a1f250ef6787bea0da2d88abfe6",
       "native-agent-stack/astrolabe": "f3511522c048ecde5f1a538387d9cf5b77f81262",
-      "native-agent-stack/sota-mover-ranker": "bae497602334cf8967c2af3491b55f6727fe601f",
+      "native-agent-stack/sota-mover-ranker": "76058d22946b5ca0882f3664db1fc34807e5b2a6",
       "native-agent-stack/sota-dynamic-trail-c": "d6e25bf82fb8963c8629f648bafbf84222441f6b",
       "native-agent-stack/trading-sota": "c7d60f5b9897ccb30223481de894ce9746e20505",
       "native-agent-stack/meridian": "4dd0c20ef3c87159e783aea8d774759358bf1413"

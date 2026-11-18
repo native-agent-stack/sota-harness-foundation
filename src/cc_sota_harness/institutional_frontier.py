@@ -15,7 +15,7 @@ from __future__ import annotations
 import datetime as dt
 import functools
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal
@@ -353,3 +353,73 @@ class PaperPositionGuardianFSM:
     def reset_minute_window(self) -> None:
         self.requests_used_last_min = 0
         self.assert_invariants()
+
+
+AUCTION_CONDITION_PRIORITY: dict[Literal["o", "c"], tuple[str, str]] = {
+    "o": ("O", "Q"),
+    "c": ("6", "M"),
+}
+
+
+@dataclass(frozen=True, slots=True)
+class AuctionPrintCandidate:
+    venue: str
+    price: float
+    size: int
+    condition: str
+    event_ts_ns: int
+
+
+def select_listing_exchange_auction_print(
+    *,
+    side: Literal["o", "c"],
+    prints: Sequence[AuctionPrintCandidate],
+) -> AuctionPrintCandidate | None:
+    """Select canonical opening/closing auction print harvested from movers/auctions.py."""
+    if side not in AUCTION_CONDITION_PRIORITY:
+        raise ValueError(f"side must be 'o' or 'c', got {side!r}")
+
+    valid = [
+        p
+        for p in prints
+        if not isinstance(p.price, bool)
+        and math.isfinite(p.price)
+        and p.price > 0.0
+        and not isinstance(p.size, bool)
+        and p.size > 0
+        and p.venue
+    ]
+    for cond in AUCTION_CONDITION_PRIORITY[side]:
+        matching = [p for p in valid if p.condition == cond]
+        if matching:
+            return min(matching, key=lambda p: (-p.size, p.venue, p.event_ts_ns))
+    return None
+
+
+def check_one_writer_symbol_isolation(
+    *,
+    symbol: str,
+    writer_lane_id: str,
+    open_position_lanes: Mapping[str, str],
+    open_order_lanes: Mapping[str, str],
+    is_blind_close_position: bool = False,
+) -> None:
+    """Enforce one-writer-per-symbol isolation harvested from movers/DECISIONS.md."""
+    sym = symbol.strip().upper()
+    lane = writer_lane_id.strip()
+    if not sym or not lane:
+        raise ValueError("symbol and writer_lane_id must be non-empty")
+    if is_blind_close_position:
+        raise PermissionError(
+            f"Blind whole-symbol close_position on {sym} is hard-refused; act only on own order/tranche IDs"
+        )
+    pos_owner = open_position_lanes.get(sym)
+    if pos_owner is not None and pos_owner != lane:
+        raise PermissionError(
+            f"Symbol {sym} position is owned by lane {pos_owner!r}; writer {lane!r} is hard-refused"
+        )
+    ord_owner = open_order_lanes.get(sym)
+    if ord_owner is not None and ord_owner != lane:
+        raise PermissionError(
+            f"Symbol {sym} has open order owned by lane {ord_owner!r}; writer {lane!r} is hard-refused"
+        )

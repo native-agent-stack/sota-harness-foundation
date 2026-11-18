@@ -13,11 +13,13 @@ from cc_sota_harness.compounding_pipeline import (
     LifecycleStage,
     StrategyLifecycleRecord,
     calibrate_protective_trail_pct,
+    compute_ex_ante_mde_bps,
     empirical_bayes_shrink_edge,
     evaluate_strategy_promotion,
     hlz_t_hurdle,
     validate_broker_target,
     validate_compounding_manifest,
+    validate_legacy_harvest_manifest,
 )
 from cc_sota_harness.gates import MAX_PROTECTIVE_STOP_PCT, STUDY_WALL
 from cc_sota_harness.upstream_execution_parity import HFTBACKTEST_PIN, NAUTILUS_PIN
@@ -175,3 +177,37 @@ def test_repo_strategy_compounding_manifest_validates_zero_errors() -> None:
     assert manifest["githubOrganization"]["name"] == "native-agent-stack"
     assert len(manifest["paperBrokerTargets"]) == 2
     assert len(manifest["empiricalTrialsArchive"]) == 2
+
+
+@given(
+    sigma_bps=st.floats(min_value=1.0, max_value=500.0, allow_nan=False, allow_infinity=False),
+    days=st.integers(min_value=10, max_value=1000),
+    extra_days=st.integers(min_value=1, max_value=1000),
+    trial_n=st.integers(min_value=1, max_value=500),
+)
+def test_property_ex_ante_mde_shrinks_with_sample_and_grows_with_trials(
+    sigma_bps: float,
+    days: int,
+    extra_days: int,
+    trial_n: int,
+) -> None:
+    mde1 = compute_ex_ante_mde_bps(fit_daily_sigma_bps=sigma_bps, held_out_days=days, trial_n=trial_n)
+    mde_more_days = compute_ex_ante_mde_bps(
+        fit_daily_sigma_bps=sigma_bps,
+        held_out_days=days + extra_days,
+        trial_n=trial_n,
+    )
+    mde_more_trials = compute_ex_ante_mde_bps(
+        fit_daily_sigma_bps=sigma_bps,
+        held_out_days=days,
+        trial_n=trial_n + 10,
+    )
+    assert mde1 > mde_more_days > 0.0
+    assert mde_more_trials >= mde1
+
+
+def test_legacy_harvest_manifest_validates_all_47_superseded_repos() -> None:
+    harvest, errors = validate_legacy_harvest_manifest()
+    assert errors == []
+    assert len(harvest["harvestedRepositories"]) == 47
+    assert len(harvest["harvestedInvariants"]) == 6

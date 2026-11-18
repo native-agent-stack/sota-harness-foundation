@@ -1,0 +1,109 @@
+{
+  "manifestVersion": "1.0.0",
+  "verifiedAt": "2026-11-17",
+  "adrAuthority": "docs/adr/ADR-0019-legacy-ecosystem-harvest-supersession-and-clean-env.md",
+  "totalHarvestedRepositories": 47,
+  "untouchedNonTradingPersonalRepos": [
+    "week11-sound-lab",
+    "week10-sound-studio",
+    "week9-pixel-studio",
+    "librarium",
+    "librarium-course",
+    "phoyo",
+    "nas-ops",
+    "OmniRoute"
+  ],
+  "harvestedInvariants": [
+    {
+      "id": "INV-AUCTION-6-BEFORE-M",
+      "sourceRepo": "native-agent-stack/legacy-movers-202611",
+      "sourceFile": "src/movers/auctions.py",
+      "lesson": "Arca and TRF emit small-lot 'M' Official Close prints across 800+ symbols; prioritizing ('O','Q') for open and ('6','M') for close sorted by (-size, venue, event_ts_ns) isolates the listing-market cross.",
+      "enforcedBy": "cc_sota_harness.institutional_frontier.select_listing_exchange_auction_print"
+    },
+    {
+      "id": "INV-ONE-WRITER-PER-SYMBOL",
+      "sourceRepo": "native-agent-stack/legacy-movers-202611",
+      "sourceFile": "DECISIONS.md",
+      "lesson": "Blind whole-symbol close_position calls liquidate concurrent lane shares; writers must verify symbol ownership and act strictly on own order/tranche IDs.",
+      "enforcedBy": "cc_sota_harness.institutional_frontier.check_one_writer_symbol_isolation"
+    },
+    {
+      "id": "INV-EX-ANTE-HLZ-MDE",
+      "sourceRepo": "native-agent-stack/legacy-edge-202611",
+      "sourceFile": "CLAUDE.md + LEARNED.md",
+      "lesson": "Canon's 122-entry paper run (-0.57%/entry, 2.2pt spread) lacked ex-ante power sizing; compute MDE = t*(N)*sigma_fit/sqrt(D_OOS) before reading held-out data.",
+      "enforcedBy": "cc_sota_harness.compounding_pipeline.compute_ex_ante_mde_bps"
+    },
+    {
+      "id": "INV-QUOTE-SWEEP-OVER-1M-OHLC",
+      "sourceRepo": "native-agent-stack/legacy-edge-202611",
+      "sourceFile": "LEARNED.md",
+      "lesson": "1-minute OHLC bars cannot judge tight stops (+0.04% high-first vs -1.17% low-first); tight stops must replay firm NBBO bid/ask quotes.",
+      "enforcedBy": "cc_sota_harness.microstructure_h05.simulate_quote_sweep_long_exit"
+    },
+    {
+      "id": "INV-ZERO-NAKED-SHARES-GUARDIAN",
+      "sourceRepo": "native-agent-stack/legacy-edge-202611",
+      "sourceFile": "LEARNED.md",
+      "lesson": "A 4-minute disconnect left 2 paper holdings without working stops for 43 minutes (-10%); every open share requires RTH OTO or awake 24x5 limit guardian.",
+      "enforcedBy": "cc_sota_harness.institutional_frontier.PaperPositionGuardianFSM"
+    },
+    {
+      "id": "INV-PASSIVE-QUEUE-PARITY",
+      "sourceRepo": "native-agent-stack/legacy-edge-202611",
+      "sourceFile": "LEARNED.md",
+      "lesson": "Chasing rising 1m closes bought the top (-0.42% vs -0.01% next-quote); limit fills must model queue position (RiskAdverseQueueModel / LogProbQueueModel2).",
+      "enforcedBy": "cc_sota_harness.upstream_execution_parity"
+    }
+  ],
+  "harvestedRepositories": [
+    {"legacyRepo": "native-agent-stack/legacy-edge-202611", "frozenCommitSha": "064366249313349b82235a92eadd51d21a09f70e", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-compounding-lab"},
+    {"legacyRepo": "native-agent-stack/legacy-movers-202611", "frozenCommitSha": "b9ada794259277193f0fbeca33e63890e230ad9f", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-mover-ranker"},
+    {"legacyRepo": "native-agent-stack/legacy-agent-stack-202610", "frozenCommitSha": "4b8ca6208e8b2bb656f662df2708f6a70a3c7830", "archivedReadOnly": true, "supersededBy": "native-agent-stack/native-agent-stack"},
+    {"legacyRepo": "native-agent-stack/ecosystem-records", "frozenCommitSha": "265a4d9f6c9d678c2d59fe8d437b9a4ea00581c5", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-private-vault"},
+    {"legacyRepo": "deer-opus/meridian", "frozenCommitSha": "9e412748b5dcbeffeb8014da9802e6a30c74f70e", "archivedReadOnly": true, "supersededBy": "native-agent-stack/meridian"},
+    {"legacyRepo": "legacy-personal/sota-dynamic-trail-c", "frozenCommitSha": "d6e25bf82fb8963c8629f648bafbf84222441f6b", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-dynamic-trail-c"},
+    {"legacyRepo": "legacy-personal/sota-mover-ranker", "frozenCommitSha": "bae497602334cf8967c2af3491b55f6727fe601f", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-mover-ranker"},
+    {"legacyRepo": "legacy-personal/agy-sota-harness", "frozenCommitSha": "17b1710348643fa19f43ef6f045d7c0b7598044c", "archivedReadOnly": true, "supersededBy": "native-agent-stack/agy-sota-harness"},
+    {"legacyRepo": "legacy-personal/dsh-sota-harness", "frozenCommitSha": "6656bb86752cbeb1b2be160a26bc5dac94c04f04", "archivedReadOnly": true, "supersededBy": "native-agent-stack/dsh-sota-harness"},
+    {"legacyRepo": "legacy-personal/trading-sota", "frozenCommitSha": "88a0e905393e41da8ef802fc51f9b114a1f74c75", "archivedReadOnly": true, "supersededBy": "native-agent-stack/trading-sota"},
+    {"legacyRepo": "legacy-personal/astrolabe", "frozenCommitSha": "f3511522c048ecde5f1a538387d9cf5b77f81262", "archivedReadOnly": true, "supersededBy": "native-agent-stack/astrolabe"},
+    {"legacyRepo": "legacy-personal/tsl", "frozenCommitSha": "ad07e1c1280cabff2a97edfc658a9ac0e9147654", "archivedReadOnly": true, "supersededBy": "native-agent-stack/tsl"},
+    {"legacyRepo": "legacy-personal/canon", "frozenCommitSha": "cf5bc1271bb45045dd72e5b23d513b2bc1968d0c", "archivedReadOnly": true, "supersededBy": "native-agent-stack/canon"},
+    {"legacyRepo": "legacy-personal/dsh-plugin-landscape", "frozenCommitSha": "e3b8370def0a18d444d96c38999ff0e10ab65b72", "archivedReadOnly": true, "supersededBy": "native-agent-stack/dsh-plugin-landscape"},
+    {"legacyRepo": "legacy-personal/canon-archive", "frozenCommitSha": "8d4056374dadb4f5ac04408ec405bc3acc21367c", "archivedReadOnly": true, "supersededBy": "native-agent-stack/canon"},
+    {"legacyRepo": "legacy-personal/sextant-movers", "frozenCommitSha": "6961e712e83e3c4dec3e112d277f2a7b5468aecd", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-mover-ranker"},
+    {"legacyRepo": "legacy-personal/sextant-paper", "frozenCommitSha": "a991b73a7e3a2933384bc94f5092ad0e1f7e6445", "archivedReadOnly": true, "supersededBy": "native-agent-stack/astrolabe"},
+    {"legacyRepo": "legacy-personal/sextant", "frozenCommitSha": "33cdee7b65d53c93ab106b7b3196fc790b14a5a8", "archivedReadOnly": true, "supersededBy": "native-agent-stack/native-agent-stack"},
+    {"legacyRepo": "legacy-personal/sextant-harness", "frozenCommitSha": "87e73333b84259aae68f6132f7e7f496fd95aa2b", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-harness-foundation"},
+    {"legacyRepo": "legacy-personal/sextant-archive", "frozenCommitSha": "62d78a2c89a580221e89d32d9e2715cf6a5fb1ea", "archivedReadOnly": true, "supersededBy": "native-agent-stack/cc-sota-harness"},
+    {"legacyRepo": "legacy-personal/peregrine-next", "frozenCommitSha": "4213692b0414b33cbd77f95f69380c50fb693483", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-mover-ranker"},
+    {"legacyRepo": "legacy-personal/peregrine", "frozenCommitSha": "3a3c9edcf82265059fd4ee11537579bfac7634c0", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-mover-ranker"},
+    {"legacyRepo": "legacy-personal/strata", "frozenCommitSha": "029830a70aaafc4ffd40e406ce7f160fbe52283f", "archivedReadOnly": true, "supersededBy": "native-agent-stack/cc-sota-harness"},
+    {"legacyRepo": "legacy-personal/agent-lab", "frozenCommitSha": "59281417592174b39d706b22bdb779b437ed1f0b", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-multi-model-workflows"},
+    {"legacyRepo": "legacy-personal/agent-harness", "frozenCommitSha": "a7f497e427a84f43b32e7fbcd4434cc8200d3a1e", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-harness-foundation"},
+    {"legacyRepo": "legacy-personal/agent-ecosystem", "frozenCommitSha": "a55186d12aa65eb34c5bf9ad0677845d17d0b972", "archivedReadOnly": true, "supersededBy": "native-agent-stack/native-agent-stack"},
+    {"legacyRepo": "legacy-personal/horizon", "frozenCommitSha": "90a4ef999fcd7abec5e19510b6f30cb7d2a22bba", "archivedReadOnly": true, "supersededBy": "native-agent-stack/native-agent-stack"},
+    {"legacyRepo": "legacy-personal/nativehorizonny2", "frozenCommitSha": "EMPTY_REPO", "archivedReadOnly": true, "supersededBy": "native-agent-stack/native-agent-stack"},
+    {"legacyRepo": "legacy-personal/us-equities-trading", "frozenCommitSha": "1218fbb9cea68297c90538174d8e44311917103f", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-compounding-lab"},
+    {"legacyRepo": "legacy-personal/astrolabe-evidence", "frozenCommitSha": "EMPTY_REPO", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-private-vault"},
+    {"legacyRepo": "legacy-personal/meridian-evidence", "frozenCommitSha": "260402b3666f4aa0dbb5dbc2eaf1f22509482332", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-private-vault"},
+    {"legacyRepo": "legacy-personal/extreme-gainer-desk", "frozenCommitSha": "37caf80205a1d33f4b3d90e48f3a3c5ee2e76f40", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-mover-ranker"},
+    {"legacyRepo": "legacy-personal/extreme-mover-research", "frozenCommitSha": "e63761c0bc087f567d18f8058f4794cacfd25ffc", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-private-vault"},
+    {"legacyRepo": "legacy-personal/actions-probe", "frozenCommitSha": "c7fd862304afa18b84699ada142a93ad2b73ea68", "archivedReadOnly": true, "supersededBy": "native-agent-stack/.github"},
+    {"legacyRepo": "legacy-personal/northstar", "frozenCommitSha": "d872b1f8b1062abc70a139ba3712fa61c34b416d", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-harness-foundation"},
+    {"legacyRepo": "legacy-personal/northstar-trading", "frozenCommitSha": "7eb2fac891de02ace207b651b4c0d61bcec47730", "archivedReadOnly": true, "supersededBy": "native-agent-stack/trading-sota"},
+    {"legacyRepo": "legacy-personal/northstar-lanes", "frozenCommitSha": "5b80ddc02ccfd635d7c200a411a5300a97251db3", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-multi-model-workflows"},
+    {"legacyRepo": "legacy-personal/north-star-research", "frozenCommitSha": "cc542f5b82d68a01122dc76a692c84c0ccf93282", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-compounding-lab"},
+    {"legacyRepo": "legacy-personal/northstar-ao-sandbox", "frozenCommitSha": "641308150d28ffd179f036a52e7b0bac87874a3f", "archivedReadOnly": true, "supersededBy": "native-agent-stack/cc-sota-harness"},
+    {"legacyRepo": "legacy-personal/eddyline", "frozenCommitSha": "d182671528af50e75784c99f4c2558a21cf367c4", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-harness-foundation"},
+    {"legacyRepo": "legacy-personal/nativestack-practice", "frozenCommitSha": "a7b8018524575cabbd979e6f2e1c84ee6e94700f", "archivedReadOnly": true, "supersededBy": "native-agent-stack/native-agent-stack"},
+    {"legacyRepo": "legacy-personal/vela", "frozenCommitSha": "c5906f00266867bbf0e6243f714dd5da601aa1c6", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-mover-ranker"},
+    {"legacyRepo": "legacy-personal/qingjian", "frozenCommitSha": "c08ae57cb88b6a4a46f4a5e9c1d6d11c5e69222e", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-harness-foundation"},
+    {"legacyRepo": "legacy-personal/trading-lanes", "frozenCommitSha": "b395c533da82c60a81523f768688b661ee8827d0", "archivedReadOnly": true, "supersededBy": "native-agent-stack/trading-sota"},
+    {"legacyRepo": "legacy-personal/ai-memory", "frozenCommitSha": "4b6341b1831f978a00f7019fcf18dae4e6899596", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-multi-model-workflows"},
+    {"legacyRepo": "legacy-personal/claude-code-action-scratch", "frozenCommitSha": "e0aad3895a10d6fbdbdb55e1ca1e47bbcb941589", "archivedReadOnly": true, "supersededBy": "native-agent-stack/.github"},
+    {"legacyRepo": "legacy-personal/vela-state", "frozenCommitSha": "d37644c3a787019fdc1e1906205ae94c06d3ace5", "archivedReadOnly": true, "supersededBy": "native-agent-stack/sota-private-vault"}
+  ]
+}

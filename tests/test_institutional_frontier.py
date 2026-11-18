@@ -12,14 +12,17 @@ from hypothesis.stateful import RuleBasedStateMachine, invariant, rule
 
 from cc_sota_harness.institutional_frontier import (
     NEW_YORK,
+    AuctionPrintCandidate,
     PaperPositionGuardianFSM,
     PITSecurityMaster,
     PITSecurityRecord,
     VenueQuote,
     almgren_chriss_sqrt_impact_bps,
+    check_one_writer_symbol_isolation,
     is_cta_utp_iso_print,
     resolve_245_session_window,
     select_freshest_venue_quote,
+    select_listing_exchange_auction_print,
 )
 
 
@@ -196,3 +199,36 @@ class GuardianLifecycleMachine(RuleBasedStateMachine):
 
 TestGuardianStatefulFuzz = GuardianLifecycleMachine.TestCase
 TestGuardianStatefulFuzz.settings = settings(max_examples=80, stateful_step_count=35)
+
+
+def test_harvested_auction_6_before_m_and_one_writer_isolation() -> None:
+    arca_m = AuctionPrintCandidate(venue="P", price=24.12, size=50_000, condition="M", event_ts_ns=100)
+    nasdaq_6 = AuctionPrintCandidate(venue="Q", price=24.50, size=8_000, condition="6", event_ts_ns=200)
+    assert select_listing_exchange_auction_print(side="c", prints=[arca_m, nasdaq_6]) == nasdaq_6
+
+    open_q = AuctionPrintCandidate(venue="Q", price=10.10, size=90_000, condition="Q", event_ts_ns=10)
+    open_o_small = AuctionPrintCandidate(venue="N", price=10.05, size=2_000, condition="O", event_ts_ns=12)
+    open_o_big = AuctionPrintCandidate(venue="Q", price=10.08, size=15_000, condition="O", event_ts_ns=15)
+    assert select_listing_exchange_auction_print(side="o", prints=[open_q, open_o_small, open_o_big]) == open_o_big
+
+    check_one_writer_symbol_isolation(
+        symbol="NVDA",
+        writer_lane_id="paper-lane-a",
+        open_position_lanes={"NVDA": "paper-lane-a"},
+        open_order_lanes={},
+    )
+    with pytest.raises(PermissionError, match="hard-refused"):
+        check_one_writer_symbol_isolation(
+            symbol="NVDA",
+            writer_lane_id="paper-lane-a",
+            open_position_lanes={},
+            open_order_lanes={},
+            is_blind_close_position=True,
+        )
+    with pytest.raises(PermissionError, match="hard-refused"):
+        check_one_writer_symbol_isolation(
+            symbol="NVDA",
+            writer_lane_id="paper-lane-b",
+            open_position_lanes={"NVDA": "paper-lane-a"},
+            open_order_lanes={},
+        )

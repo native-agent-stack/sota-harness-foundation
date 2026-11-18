@@ -34,6 +34,10 @@ _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 DEFAULT_MANIFEST_PATH = (
     pathlib.Path(__file__).resolve().parent.parent.parent / "config" / "strategy-compounding-manifest.json"
 )
+DEFAULT_LEGACY_HARVEST_PATH = (
+    pathlib.Path(__file__).resolve().parent.parent.parent / "config" / "legacy-harvest-manifest.json"
+)
+_SHA1_40_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 class LifecycleStage(StrEnum):
@@ -61,6 +65,26 @@ def hlz_t_hurdle(trial_n: int) -> float:
         raise ValueError(f"trial_n must be a positive integer >= 1, got {trial_n!r}")
     p_target = HLZ_BASE_ONE_SIDED_P / float(trial_n)
     return round(float(_STD_NORM.inv_cdf(1.0 - p_target)), 4)
+
+
+def compute_ex_ante_mde_bps(
+    *,
+    fit_daily_sigma_bps: float,
+    held_out_days: int,
+    trial_n: int,
+) -> float:
+    """Compute ex-ante Minimum Detectable Effect (bps/day) before reading OOS data.
+
+    Harvested from ``edge/CLAUDE.md`` & ``edge/LEARNED.md`` (Lesson 6): if no plausible
+    post-cost edge exceeds ``t*(N) * sigma_fit / sqrt(held_out_days)``, do not burn
+    held-out degrees of freedom.
+    """
+    if isinstance(fit_daily_sigma_bps, bool) or not math.isfinite(fit_daily_sigma_bps) or fit_daily_sigma_bps <= 0.0:
+        raise ValueError(f"fit_daily_sigma_bps must be finite and > 0, got {fit_daily_sigma_bps!r}")
+    if isinstance(held_out_days, bool) or not isinstance(held_out_days, int) or held_out_days < 1:
+        raise ValueError(f"held_out_days must be an integer >= 1, got {held_out_days!r}")
+    t_star = hlz_t_hurdle(trial_n)
+    return (t_star * fit_daily_sigma_bps) / math.sqrt(float(held_out_days))
 
 
 def empirical_bayes_shrink_edge(
@@ -425,4 +449,42 @@ def validate_compounding_manifest(
         if cal_stop > MAX_PROTECTIVE_STOP_PCT:
             errors.append(f"Candidate {cand['strategyId']} calibrated stop {cal_stop} > 0.0200")
 
+    return data, errors
+
+
+def validate_legacy_harvest_manifest(
+    manifest_path: pathlib.Path | None = None,
+) -> tuple[dict[str, Any], list[str]]:
+    """Validate config/legacy-harvest-manifest.json 40-char SHAs and supersession map."""
+    path = manifest_path or DEFAULT_LEGACY_HARVEST_PATH
+    errors: list[str] = []
+    if not path.is_file():
+        return {}, [f"Missing legacy harvest manifest: {path}"]
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    records = data.get("harvestedRepositories", [])
+    if len(records) < 45:
+        errors.append(f"Expected >= 45 harvested legacy repository records, found {len(records)}")
+
+    seen_keys: set[str] = set()
+    for row in records:
+        repo_key = str(row.get("legacyRepo", ""))
+        if not repo_key or repo_key in seen_keys:
+            errors.append(f"Duplicate or empty legacyRepo entry: {repo_key!r}")
+        seen_keys.add(repo_key)
+
+        sha = str(row.get("frozenCommitSha", ""))
+        if sha != "EMPTY_REPO" and not _SHA1_40_RE.match(sha):
+            errors.append(f"Invalid 40-char frozenCommitSha for {repo_key}: {sha!r}")
+
+        succ = str(row.get("supersededBy", ""))
+        if not succ.startswith("native-agent-stack/"):
+            errors.append(f"{repo_key} supersededBy must target native-agent-stack/*, got {succ!r}")
+
+        if row.get("archivedReadOnly") is not True:
+            errors.append(f"{repo_key} must have archivedReadOnly=true")
+
+    invariants = data.get("harvestedInvariants", [])
+    if len(invariants) < 6:
+        errors.append("harvestedInvariants must document >= 6 code-enforced legacy lessons")
     return data, errors
