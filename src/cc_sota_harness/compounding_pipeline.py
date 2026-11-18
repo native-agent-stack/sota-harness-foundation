@@ -21,6 +21,7 @@ from typing import Any
 from cc_sota_harness.gates import (
     ALPACA_PAPER_MAX_RPM,
     IBKR_PAPER_MAX_MPM,
+    IBKR_PROTECTIVE_EXIT_RESERVE_MPM,
     MAX_PROTECTIVE_STOP_DEC,
     MAX_PROTECTIVE_STOP_PCT,
     PROTECTIVE_EXIT_RESERVE_RPM,
@@ -29,6 +30,8 @@ from cc_sota_harness.gates import (
 from cc_sota_harness.upstream_execution_parity import HFTBACKTEST_PIN, NAUTILUS_PIN
 
 HLZ_BASE_ONE_SIDED_P = 0.00135
+CANONICAL_MODEL_VENDORS: frozenset[str] = frozenset({"anthropic", "openai", "google", "deepseek"})
+CANONICAL_7FEED_SCHEMA = "sota-research-feeds.v2"
 _STD_NORM = statistics.NormalDist(0.0, 1.0)
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 DEFAULT_MANIFEST_PATH = (
@@ -196,14 +199,34 @@ def validate_broker_target(cfg: BrokerTargetConfig) -> None:
             raise PermissionError(
                 f"Non-paper venue_prefix {cfg.venue_prefix!r} is hard-refused; IBKR paper requires 'DU'"
             )
+        if cfg.endpoint_or_host != "127.0.0.1":
+            raise PermissionError(
+                f"Non-loopback IBKR endpoint {cfg.endpoint_or_host!r} is hard-refused; IBKR paper requires '127.0.0.1'"
+            )
         if cfg.port != 4002:
             raise ValueError(f"IBKR paper requires port 4002, got {cfg.port!r}")
         if cfg.max_rate_per_min > IBKR_PAPER_MAX_MPM:
             raise ValueError(f"IBKR max_rate_per_min {cfg.max_rate_per_min} exceeds {IBKR_PAPER_MAX_MPM}")
-        if cfg.entry_rate_cap_per_min <= 0 or cfg.entry_rate_cap_per_min >= cfg.max_rate_per_min:
-            raise ValueError("IBKR entry_rate_cap_per_min must reserve protective exit capacity")
+        max_ibkr_entry = cfg.max_rate_per_min - IBKR_PROTECTIVE_EXIT_RESERVE_MPM
+        if cfg.entry_rate_cap_per_min <= 0 or cfg.entry_rate_cap_per_min > max_ibkr_entry:
+            raise ValueError(
+                f"IBKR entry_rate_cap_per_min {cfg.entry_rate_cap_per_min} must reserve >= "
+                f"{IBKR_PROTECTIVE_EXIT_RESERVE_MPM} msg/min protective exit capacity (<= {max_ibkr_entry})"
+            )
         if cfg.extended_session_protection != "outside_rth_stop_limit":
             raise ValueError("IBKR extended session requires 'outside_rth_stop_limit'")
+
+
+@dataclass(frozen=True, slots=True)
+class DataFeedPITContract:
+    """Point-in-time 7-feed `sota-research-feeds.v2` discipline contract."""
+
+    schema_version: str = CANONICAL_7FEED_SCHEMA
+    raw_vs_all_separated: bool = True
+    sec_acceptance_half_life_min: float = 15.0
+    sec_dilution_shield_enabled: bool = True
+    finra_short_vol_lag_sessions: int = 1
+    finra_short_interest_lag_bdays: int = 8
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,6 +257,7 @@ class StrategyLifecycleRecord:
     eb_obs_mean_bps: float | None = None
     eb_obs_se_bps: float | None = None
     lesson_recorded: bool = False
+    pit_contract: DataFeedPITContract = DataFeedPITContract()
 
 
 @dataclass(frozen=True, slots=True)
@@ -294,14 +318,30 @@ def evaluate_strategy_promotion(record: StrategyLifecycleRecord) -> PromotionVer
             reasons.append(f"Stage 2: net_return_1x_bps {record.net_return_1x_bps} <= 0")
         if not math.isfinite(record.net_return_2x_bps) or record.net_return_2x_bps <= 0.0:
             reasons.append(f"Stage 2: net_return_2x_bps {record.net_return_2x_bps} <= 0")
+        pit = record.pit_contract
+        if pit.schema_version != CANONICAL_7FEED_SCHEMA:
+            reasons.append(f"Stage 2: pit_contract schema_version {pit.schema_version!r} != {CANONICAL_7FEED_SCHEMA!r}")
+        if not pit.raw_vs_all_separated:
+            reasons.append("Stage 2: pit_contract requires Adjustment.RAW vs ALL separation")
+        if not math.isfinite(pit.sec_acceptance_half_life_min) or not (0.0 < pit.sec_acceptance_half_life_min <= 30.0):
+            reasons.append("Stage 2: sec_acceptance_half_life_min must be in (0, 30]")
+        if not pit.sec_dilution_shield_enabled:
+            reasons.append("Stage 2: sec_dilution_shield_enabled (424B*/S-3 block) is required")
+        if pit.finra_short_vol_lag_sessions < 1:
+            reasons.append("Stage 2: finra_short_vol_lag_sessions must be >= 1 (T-1 lag)")
+        if pit.finra_short_interest_lag_bdays < 8:
+            reasons.append("Stage 2: finra_short_interest_lag_bdays must be >= 8 (FINRA Rule 4560 T+8 dissemination)")
         if not reasons:
             highest = LifecycleStage.PREWALL_BACKTEST
 
     # Stage 3: Cross-model adversarial falsification
     if target_idx >= 3 and not reasons:
         distinct_families = {fam.strip().lower() for fam in record.verified_model_families if fam.strip()}
-        if len(distinct_families) < 3:
-            reasons.append(f"Stage 3: requires >= 3 distinct model families, got {sorted(distinct_families)}")
+        unknown_families = distinct_families - CANONICAL_MODEL_VENDORS
+        if unknown_families:
+            reasons.append(f"Stage 3: non-canonical or wrapper vendor(s) rejected: {sorted(unknown_families)}")
+        if len(distinct_families & CANONICAL_MODEL_VENDORS) < 3:
+            reasons.append(f"Stage 3: requires >= 3 distinct canonical model vendors, got {sorted(distinct_families)}")
         if record.open_p0_p1_defects != 0:
             reasons.append(f"Stage 3: open_p0_p1_defects={record.open_p0_p1_defects} (must be 0)")
         if not reasons:

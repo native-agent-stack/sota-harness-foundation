@@ -10,6 +10,7 @@ from hypothesis import strategies as st
 
 from cc_sota_harness.compounding_pipeline import (
     BrokerTargetConfig,
+    DataFeedPITContract,
     LifecycleStage,
     StrategyLifecycleRecord,
     calibrate_protective_trail_pct,
@@ -21,7 +22,7 @@ from cc_sota_harness.compounding_pipeline import (
     validate_compounding_manifest,
     validate_legacy_harvest_manifest,
 )
-from cc_sota_harness.gates import MAX_PROTECTIVE_STOP_PCT, STUDY_WALL
+from cc_sota_harness.gates import MAX_PROTECTIVE_STOP_PCT, STUDY_WALL, OrderIntent, check_paper_order_intent
 from cc_sota_harness.upstream_execution_parity import HFTBACKTEST_PIN, NAUTILUS_PIN
 
 
@@ -211,3 +212,46 @@ def test_legacy_harvest_manifest_validates_all_47_superseded_repos() -> None:
     assert errors == []
     assert len(harvest["harvestedRepositories"]) == 47
     assert len(harvest["harvestedInvariants"]) == 6
+
+
+def test_ao_remediation_vendor_allowlist_pit_contract_and_ibkr_reserve() -> None:
+    # 1. Wrapper pseudo-vendor rejected in Stage 3 even when 3 strings are passed
+    pseudo = replace(
+        _sample_record(),
+        verified_model_families=("anthropic", "google", "multi-router"),
+    )
+    v_pseudo = evaluate_strategy_promotion(pseudo)
+    assert v_pseudo.approved is False
+    assert v_pseudo.highest_cleared_stage == LifecycleStage.PREWALL_BACKTEST
+
+    # 2. FINRA Rule 4560 short-interest dissemination lookahead (< 8 bdays) rejected in Stage 2
+    bad_pit = replace(
+        _sample_record(),
+        pit_contract=DataFeedPITContract(finra_short_interest_lag_bdays=0),
+    )
+    v_pit = evaluate_strategy_promotion(bad_pit)
+    assert v_pit.approved is False
+    assert v_pit.highest_cleared_stage == LifecycleStage.SIM_QUEUE_PARITY
+
+    # 3. Non-loopback IBKR host hard-refused and entry cap > 2700 rejected
+    with pytest.raises(PermissionError, match="hard-refused"):
+        validate_broker_target(replace(_valid_ibkr_broker(), endpoint_or_host="10.0.0.5"))
+    with pytest.raises(ValueError, match="300 msg/min"):
+        validate_broker_target(replace(_valid_ibkr_broker(), entry_rate_cap_per_min=2850))
+
+    # 4. OrderIntent on DU reserves 300 msg/min for protective exits (2700 entry cap / 3000 exit cap)
+    base_du = OrderIntent(
+        venue_prefix="DU",
+        symbol="NVDA",
+        side="buy",
+        entry_price=100.0,
+        stop_price=98.5,
+        session="overnight",
+        has_broker_oto_stop=True,
+        has_awake_limit_exit=False,
+        requests_used_last_min=2700,
+        is_protective_exit=False,
+    )
+    with pytest.raises(RuntimeError, match="rate-budget exceeded"):
+        check_paper_order_intent(base_du)
+    check_paper_order_intent(replace(base_du, is_protective_exit=True))

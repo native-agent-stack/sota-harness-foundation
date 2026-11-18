@@ -1,6 +1,6 @@
 {
-  "manifestVersion": "1.0.0",
-  "verifiedAt": "2026-11-17",
+  "manifestVersion": "1.1.0",
+  "verifiedAt": "2026-11-18",
   "studyWallDate": "2026-10-15",
   "githubOrganization": {
     "name": "native-agent-stack",
@@ -28,19 +28,19 @@
       "native-agent-stack/ecosystem-records"
     ],
     "peerVerifiedCommitShas": {
-      "native-agent-stack/cc-sota-harness": "be14a83a3dcadf74c27001c592c74fcc82135168",
-      "native-agent-stack/.github": "7302fe68c01abcf7903c414e0820cdefe2a00018",
-      "native-agent-stack/native-agent-stack": "113c695601e8d6fd43d98eaa6c7cfa00d0175b6b",
-      "native-agent-stack/sota-multi-model-workflows": "da0f891d81dd6137cd803073b49ef956c02e33c9",
-      "native-agent-stack/sota-compounding-lab": "7cc1010d41cda4bfca7f74949df30b6b591fb166",
-      "native-agent-stack/sota-upstream-shelf-lock": "1be9b36918761b50dff65c0b50605bdf8639f84a",
-      "native-agent-stack/agy-sota-harness": "7355520330214d7c44511f654047476c980c5884",
+      "native-agent-stack/cc-sota-harness": "4a9c10dd3a528b3bdbc265ebd91be103b1eec1d9",
+      "native-agent-stack/.github": "234edf5b8e30d56b0cd78e34ec38754b2fb6c4b5",
+      "native-agent-stack/native-agent-stack": "dac24e5293468ba1cf3656fc1592f7f377aa7534",
+      "native-agent-stack/sota-multi-model-workflows": "50aad143dbbbf8d3eb6c3e2e2c5b594133199f35",
+      "native-agent-stack/sota-compounding-lab": "d791f8adb4b4b5b0384e4ffbdeab1e7de4015ba3",
+      "native-agent-stack/sota-upstream-shelf-lock": "075e66b5423001fcb919b4dc690cf9f6f8cd4b24",
+      "native-agent-stack/agy-sota-harness": "ceb78426be6e97adb7939a6a585d68860f12590c",
       "native-agent-stack/dsh-sota-harness": "980d47a7703e0a1f250ef6787bea0da2d88abfe6",
-      "native-agent-stack/astrolabe": "9c654ea565da3f152f4577b372b87f411a68e326",
-      "native-agent-stack/sota-mover-ranker": "5192afc1ba553901df9969078914be75b39393cb",
-      "native-agent-stack/sota-dynamic-trail-c": "d6e25bf82fb8963c8629f648bafbf84222441f6b",
-      "native-agent-stack/trading-sota": "c7d60f5b9897ccb30223481de894ce9746e20505",
-      "native-agent-stack/meridian": "4dd0c20ef3c87159e783aea8d774759358bf1413"
+      "native-agent-stack/astrolabe": "6016e0798b9c8cd9f3bf72b17336f8a87007e848",
+      "native-agent-stack/sota-mover-ranker": "3639663a7866ce127caf1875e22437e443d94c8b",
+      "native-agent-stack/sota-dynamic-trail-c": "4b87d23e7869c0683981751c136cc92c2bea9204",
+      "native-agent-stack/trading-sota": "a75a5f72daa27cd43ad7672be7380ccc6fe883e3",
+      "native-agent-stack/meridian": "85def3e7a099b596057fb2b03313cd4f35731b3c"
     }
   },
   "lifecycleStages": [
@@ -113,9 +113,9 @@
   ],
   "nextHypothesisQueue": [
     {
-      "strategyId": "REF_NEXT_RANGE_CALIBRATED_CANDIDATE",
-      "nextTrialN": 83,
-      "requiredHlzTHurdle": 4.155,
+      "strategyId": "H086_PASSIVE_BID_X_VARIANCE_COMPRESSING_DYNAMIC_TRAIL",
+      "nextTrialN": 86,
+      "requiredHlzTHurdle": 4.1631,
       "prewallMedianBarRangeBps": 150.0,
       "rangeMultiplier": 1.2,
       "calibratedMaxStopPct": 0.018,

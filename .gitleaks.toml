@@ -20,3 +20,13 @@ id = "anthropic-or-openai-key"
 description = "Anthropic or OpenAI secret key"
 regex = '''\bsk-(?:ant-|proj-)?[A-Za-z0-9_\-]{20,}\b'''
 tags = ["key", "llm"]
+
+[allowlist]
+description = "Ignore gitignored local virtualenv and tool caches during --no-git scans"
+paths = [
+  '''(?:^|/)\.venv/''',
+  '''(?:^|/)\.ruff_cache/''',
+  '''(?:^|/)\.pytest_cache/''',
+  '''(?:^|/)\.hypothesis/''',
+  '''(?:^|/)__pycache__/''',
+]

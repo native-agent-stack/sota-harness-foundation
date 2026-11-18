@@ -19,6 +19,7 @@ MAX_PROTECTIVE_STOP_DEC = Decimal("0.02")
 ALPACA_PAPER_MAX_RPM = 200
 PROTECTIVE_EXIT_RESERVE_RPM = 15
 IBKR_PAPER_MAX_MPM = 3000
+IBKR_PROTECTIVE_EXIT_RESERVE_MPM = 300
 
 
 @dataclass(frozen=True)
@@ -59,7 +60,8 @@ def check_paper_order_intent(intent: OrderIntent) -> None:
         raise ValueError("entry_price and stop_price must be finite and strictly positive")
 
     max_rpm = ALPACA_PAPER_MAX_RPM if intent.venue_prefix == "PA" else IBKR_PAPER_MAX_MPM
-    entry_cap = max_rpm - PROTECTIVE_EXIT_RESERVE_RPM if intent.venue_prefix == "PA" else max_rpm
+    reserve = PROTECTIVE_EXIT_RESERVE_RPM if intent.venue_prefix == "PA" else IBKR_PROTECTIVE_EXIT_RESERVE_MPM
+    entry_cap = max_rpm - reserve
     limit = max_rpm if intent.is_protective_exit else entry_cap
     if intent.requests_used_last_min >= limit:
         raise RuntimeError(f"rate-budget exceeded ({intent.requests_used_last_min} >= {limit})")
