@@ -904,3 +904,34 @@ def build_memory_delta_sync_plan(*, since_hours: float = 2.0, qmd_indexed_docs: 
         "qmdIndexedDocs": qmd_indexed_docs,
     }
 
+
+def chunk_powershell_b64_payload(b64_code: str, *, max_chunk_chars: int = 3500) -> list[str]:
+    """Split large Base64 payloads into <= max_chunk_chars PowerShell lines below Win32 CreateProcessW 32,767 limit."""
+    if max_chunk_chars < 512 or max_chunk_chars > 12000:
+        raise ValueError(f"max_chunk_chars must be in [512, 12000], got {max_chunk_chars}")
+    if not b64_code:
+        return []
+    chunks = [b64_code[i : i + max_chunk_chars] for i in range(0, len(b64_code), max_chunk_chars)]
+    return [
+        f"{'Set-Content' if idx == 0 else 'Add-Content'} -NoNewline -Path \"$env:TEMP\\sota_ephem.b64\" -Value '{ch}'"
+        for idx, ch in enumerate(chunks)
+    ]
+
+
+def tokenize_qmd_bm25_query(repo: str, goal: str, *, max_terms: int = 3) -> str:
+    """Extract non-stopword whole tokens for qmd BM25 search without mid-word truncation."""
+    stop = {
+        "the", "and", "for", "with", "from", "into", "across", "verify", "confirm",
+        "audit", "check", "run", "read", "only", "ack", "are", "live", "reply", "via",
+    }
+    words = [
+        w for w in re.findall(r"[A-Za-z0-9][A-Za-z0-9_-]{2,}", f"{repo} {goal}")
+        if w.lower() not in stop
+    ]
+    dedup: list[str] = []
+    for w in words:
+        if w.lower() not in {x.lower() for x in dedup}:
+            dedup.append(w)
+    return " ".join(dedup[: max(1, max_terms)])
+
+

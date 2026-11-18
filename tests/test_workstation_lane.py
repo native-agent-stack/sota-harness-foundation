@@ -362,3 +362,25 @@ def test_adr_0034_coop_recipient_omc_callback_and_3surface_memory_sync() -> None
     assert len(plan["surfaces"]) == 3
     assert plan["qmdIndexedDocs"] >= 567
 
+
+def test_adr_0035_createprocessw_chunked_b64_and_qmd_bm25_tokenizer() -> None:
+    from cc_sota_harness.workstation_lane import (
+        chunk_powershell_b64_payload,
+        tokenize_qmd_bm25_query,
+    )
+
+    big_b64 = "A" * 9000
+    lines = chunk_powershell_b64_payload(big_b64, max_chunk_chars=3500)
+    assert len(lines) == 3
+    assert lines[0].startswith("Set-Content -NoNewline")
+    assert lines[1].startswith("Add-Content -NoNewline")
+    assert all(len(ln) < 4000 for ln in lines)
+
+    kw = tokenize_qmd_bm25_query(
+        "sota-harness-foundation",
+        "Verify ADR-0035 CreateProcessW chunked sync and qmd BM25",
+    )
+    assert "sota-harness-foundation" in kw
+    assert "ADR-0035" in kw
+
+
