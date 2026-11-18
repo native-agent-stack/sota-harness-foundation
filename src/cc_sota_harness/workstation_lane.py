@@ -7,12 +7,16 @@ Coordinates seamless cross-session and cross-runtime execution between:
   RTX 4090 24 GB) stationary Orca server (``--environment 100.110.115.22``) with all 18
   ``native-agent-stack`` repositories provisioned under ``C:/sota-workstation``.
 """
+
 from __future__ import annotations
 
 import json
 import math
 import pathlib
 import re
+import subprocess
+import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -123,10 +127,7 @@ def resolve_workstation_placement(
     repo_sel = f"id:{remote_repo_id}" if remote_repo_id else f"github:native-agent-stack/{repo_name}"
 
     if workload == WorkloadKind.PAPER_BROKER_24X5:
-        if (
-            telemetry.active_broker_host is not None
-            and telemetry.active_broker_host != candidate_broker_host
-        ):
+        if telemetry.active_broker_host is not None and telemetry.active_broker_host != candidate_broker_host:
             raise PermissionError(
                 f"Dual-machine broker split-brain hard-refused: {telemetry.active_broker_host!r} already holds "
                 f"the active 24x5 paper broker lease; {candidate_broker_host!r} may not start a second writer"
@@ -154,9 +155,7 @@ def resolve_workstation_placement(
             workload=workload,
             target_host=candidate_broker_host,
             orca_selector=(
-                "--host local"
-                if candidate_broker_host == "portable_mac_lead"
-                else "--environment 100.110.115.22"
+                "--host local" if candidate_broker_host == "portable_mac_lead" else "--environment 100.110.115.22"
             ),
             allocated_threads=4,
             keep_caffeinate_awake=True,
@@ -382,21 +381,101 @@ def build_orca_coop_sync_plan(
     }
 
 
+def probe_noesis_orca_with_retry(
+    orca_bin: str,
+    env_name: str = "100.110.115.22",
+    *,
+    timeout_s: float = 12.0,
+    attempts: int = 2,
+) -> tuple[bool, float | None, list[dict[str, Any]]]:
+    """Probe paired Noesis Orca environment (`timeout=12s`, 1 automatic retry for Tailscale wakeup)."""
+    for _attempt in range(max(1, attempts)):
+        t0 = time.perf_counter()
+        try:
+            res = subprocess.run(
+                [orca_bin, "repo", "list", "--environment", env_name, "--json"],
+                capture_output=True,
+                text=True,
+                timeout=timeout_s,
+                check=False,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            continue
+        rtt_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+        if res.returncode != 0:
+            continue
+        try:
+            parsed = json.loads(res.stdout)
+            if not parsed.get("ok"):
+                continue
+            repos = parsed.get("result", {}).get("repos", [])
+            return True, rtt_ms, list(repos)
+        except (ValueError, TypeError, AttributeError):
+            continue
+    return False, None, []
+
+
+def resolve_local_mac_repo_dir(repo_name: str, home: pathlib.Path | None = None) -> pathlib.Path:
+    """Resolve canonical local macOS checkout path for any of the 18 provisioned Org repositories."""
+    h = home if home is not None else pathlib.Path.home()
+    if repo_name == "sota-dynamic-trail-c":
+        return h / "sota-dynamic-trail-c"
+    if repo_name == "canon":
+        return h / "canon"
+    if repo_name == ".github":
+        dot_gh = h / "Documents" / "dot-github"
+        return (
+            dot_gh
+            if (dot_gh / ".git").exists() or not (h / "Documents" / ".github" / ".git").exists()
+            else h / "Documents" / ".github"
+        )
+    if repo_name == "dsh-plugin-landscape":
+        full_name_dir = h / "Documents" / "dsh-plugin-landscape"
+        if (full_name_dir / ".git").exists():
+            return full_name_dir
+        return h / "Documents" / "dsh"
+    return h / "Documents" / repo_name
+
+
+def build_noesis_sync_powershell_commands(
+    repos: Sequence[str],
+    *,
+    skip_leased_repos: Sequence[str] = (),
+) -> list[str]:
+    """Build PowerShell commands to FF-sync `C:/sota-workstation/*` + `$HOME/.agents/{workflows,skills}` on Noesis."""
+    skipped = set(skip_leased_repos)
+    ps_cmds: list[str] = []
+    for repo in repos:
+        if repo in skipped:
+            continue
+        folder = "dot-github" if repo == ".github" else repo
+        ps_cmds.append(f"git -C C:/sota-workstation/{folder} pull --ff-only")
+    ps_cmds.append(
+        'New-Item -ItemType Directory -Force "$HOME/.agents/workflows" | Out-Null; '
+        'Copy-Item -Force C:/sota-workstation/sota-multi-model-workflows/workflows/* "$HOME/.agents/workflows/"'
+    )
+    ps_cmds.append(
+        'New-Item -ItemType Directory -Force "$HOME/.agents/skills" | Out-Null; '
+        "if (Test-Path C:/sota-workstation/agy-sota-harness/skills) { "
+        'Copy-Item -Recurse -Force C:/sota-workstation/agy-sota-harness/skills/* "$HOME/.agents/skills/" }'
+    )
+    ps_cmds.append('Write-Output "===SYNC_DONE==="')
+    return ps_cmds
+
+
 HEADLESS_ORCA_SERVE_REQUIRED_FLAGS: tuple[str, str] = ("--no-pairing", "--refuse-public")
 
 
 def validate_headless_orca_serve_flags(argv: list[str] | tuple[str, ...]) -> None:
-    """Enforce ADR-0025 hardened headless ``orca serve`` flags over Tailscale."""
+    """Enforce hardened headless ``orca serve`` flags over Tailscale."""
     tokens = [str(x).strip() for x in argv]
     missing = [flag for flag in HEADLESS_ORCA_SERVE_REQUIRED_FLAGS if flag not in tokens]
     if missing:
-        raise PermissionError(
-            f"ADR-0025 headless Orca daemon guard hard-refused missing required flags: {missing}"
-        )
+        raise PermissionError(f"Headless Orca daemon guard hard-refused missing required flags: {missing}")
     for idx, tok in enumerate(tokens[:-1]):
         if tok == "--host" and tokens[idx + 1] in {"0.0.0.0", "::"}:
             raise PermissionError(
-                "ADR-0025 headless Orca daemon guard hard-refused wildcard bind; bind solely to Tailscale or loopback IP."
+                "Headless Orca daemon guard hard-refused wildcard bind; bind solely to Tailscale or loopback IP."
             )
 
 
@@ -406,7 +485,7 @@ def filter_lease_safe_sync_repos(
     remote_active_leases: list[dict[str, Any]] | tuple[dict[str, Any], ...] = (),
     dirty_repos: set[str] | frozenset[str] = frozenset(),
 ) -> tuple[list[str], dict[str, str]]:
-    """Filter candidate git sync targets so leased or dirty repos are never clobbered (ADR-0025)."""
+    """Filter candidate git sync targets so leased or dirty repos are never clobbered."""
     leased_map: dict[str, str] = {}
     for item in remote_active_leases:
         repo = str(item.get("repo", "")).strip()
@@ -424,3 +503,25 @@ def filter_lease_safe_sync_repos(
         else:
             safe.append(repo)
     return safe, skipped
+
+
+def resolve_workstation_repo_dir(
+    repo_name: str,
+    *,
+    home: pathlib.Path | None = None,
+    win_root: pathlib.Path | None = None,
+) -> pathlib.Path:
+    """Resolve an ecosystem repo across Mac (`~/Documents`), Noesis Win32 (`C:/sota-workstation`), and WSL2 (`~/sota-workstation`)."""
+    h = home if home is not None else pathlib.Path.home()
+    w = win_root if win_root is not None else pathlib.Path("C:/sota-workstation")
+    folder = "dot-github" if repo_name == ".github" else repo_name
+    candidates: list[pathlib.Path] = []
+    if repo_name == "canon":
+        candidates.append(h / "canon")
+    candidates.extend([h / "Documents" / folder, h / "sota-workstation" / folder, w / folder])
+    if repo_name == "dsh-plugin-landscape":
+        candidates.insert(1, h / "Documents" / "dsh")
+    for cand in candidates:
+        if cand.is_dir():
+            return cand
+    return candidates[0]

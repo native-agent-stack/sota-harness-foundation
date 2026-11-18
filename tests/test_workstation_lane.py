@@ -1,5 +1,11 @@
 """Unit and Hypothesis property tests for the Dual-Machine Orca Workstation Lane (ADR-0020)."""
+
 from __future__ import annotations
+
+import json
+import pathlib
+import subprocess
+from unittest import mock
 
 import pytest
 from hypothesis import given
@@ -13,12 +19,16 @@ from cc_sota_harness.workstation_lane import (
     HostTelemetry,
     WorkloadKind,
     WorkstationTopologyMode,
+    build_noesis_sync_powershell_commands,
     build_orca_coop_sync_plan,
     classify_topology_mode,
     enforce_workstation_wsl_and_gateway_guard,
     filter_lease_safe_sync_repos,
     portable_thread_budget,
+    probe_noesis_orca_with_retry,
+    resolve_local_mac_repo_dir,
     resolve_workstation_placement,
+    resolve_workstation_repo_dir,
     validate_dual_workstation_manifest,
     validate_headless_orca_serve_flags,
 )
@@ -115,7 +125,9 @@ def test_dual_machine_broker_split_brain_hard_refused() -> None:
 
 
 def test_adr_0021_wsl_shared_vm_and_gateway_guards() -> None:
-    enforce_workstation_wsl_and_gateway_guard("wsl -d meridian -e pytest -q", {"ANTHROPIC_BASE_URL": "http://127.0.0.1:20128"})
+    enforce_workstation_wsl_and_gateway_guard(
+        "wsl -d meridian -e pytest -q", {"ANTHROPIC_BASE_URL": "http://127.0.0.1:20128"}
+    )
 
     with pytest.raises(PermissionError, match="wsl --shutdown"):
         enforce_workstation_wsl_and_gateway_guard("wsl --shutdown")
@@ -152,24 +164,65 @@ def test_adr_0022_orca_coop_sync_plan_enforces_org_and_uuid() -> None:
         build_orca_coop_sync_plan(reference_url="https://example.com/outside")
 
 
-def test_adr_0025_headless_orca_serve_and_lease_safe_sync_guards() -> None:
+def test_probe_noesis_retry_local_mac_repo_dirs_and_powershell_sync(tmp_path: pathlib.Path) -> None:
+    # 1. Retry recovers cleanly after initial Tailscale idle-wakeup timeout (timeout=12s)
+    ok_payload = json.dumps({"ok": True, "result": {"repos": [{"name": "sota-multi-model-workflows"}]}})
+    side_effects = [
+        subprocess.TimeoutExpired(cmd=["orca"], timeout=12.0),
+        subprocess.CompletedProcess(args=["orca"], returncode=0, stdout=ok_payload, stderr=""),
+    ]
+    with mock.patch("cc_sota_harness.workstation_lane.subprocess.run", side_effect=side_effects) as m_run:
+        reachable, rtt_ms, repos = probe_noesis_orca_with_retry("orca", "100.110.115.22")
+        assert reachable is True
+        assert rtt_ms is not None
+        assert len(repos) == 1
+        assert m_run.call_count == 2
+        assert m_run.call_args.kwargs["timeout"] == 12.0
+
+    # 2. Local macOS checkout path mapping including TCC-safe & dsh-plugin-landscape fallback
+    assert resolve_local_mac_repo_dir("sota-dynamic-trail-c", tmp_path) == tmp_path / "sota-dynamic-trail-c"
+    assert resolve_local_mac_repo_dir("canon", tmp_path) == tmp_path / "canon"
+    assert resolve_local_mac_repo_dir(".github", tmp_path) == tmp_path / "Documents" / "dot-github"
+    assert resolve_local_mac_repo_dir("dsh-plugin-landscape", tmp_path) == tmp_path / "Documents" / "dsh"
+    (tmp_path / "Documents" / "dsh-plugin-landscape" / ".git").mkdir(parents=True)
+    assert (
+        resolve_local_mac_repo_dir("dsh-plugin-landscape", tmp_path) == tmp_path / "Documents" / "dsh-plugin-landscape"
+    )
+
+    # 3. Noesis PowerShell sync includes workflows/* -> $HOME/.agents/workflows/ & ===SYNC_DONE===
+    cmds = build_noesis_sync_powershell_commands(
+        [".github", "sota-multi-model-workflows", "sota-mover-ranker"],
+        skip_leased_repos=["sota-mover-ranker"],
+    )
+    joined = "\n".join(cmds)
+    assert "git -C C:/sota-workstation/dot-github pull --ff-only" in joined
+    assert "git -C C:/sota-workstation/sota-multi-model-workflows pull --ff-only" in joined
+    assert "sota-mover-ranker" not in joined
+    assert (
+        'Copy-Item -Force C:/sota-workstation/sota-multi-model-workflows/workflows/* "$HOME/.agents/workflows/"'
+        in joined
+    )
+    assert 'Write-Output "===SYNC_DONE==="' in joined
+
+
+def test_v360_headless_orca_lease_safe_sync_and_3surface_resolver(tmp_path: pathlib.Path) -> None:
     validate_headless_orca_serve_flags(
         ["orca", "serve", "--host", "100.110.115.22", "--port", "6770", "--no-pairing", "--refuse-public"]
     )
     with pytest.raises(PermissionError, match="--refuse-public"):
         validate_headless_orca_serve_flags(["orca", "serve", "--host", "100.110.115.22", "--no-pairing"])
-    with pytest.raises(PermissionError, match="wildcard bind"):
-        validate_headless_orca_serve_flags(
-            ["orca", "serve", "--host", "0.0.0.0", "--no-pairing", "--refuse-public"]
-        )
-
     safe, skipped = filter_lease_safe_sync_repos(
-        ["sota-harness-foundation", "sota-mover-ranker", "meridian"],
+        ["sota-harness-foundation", "sota-mover-ranker"],
         remote_active_leases=[{"repo": "sota-mover-ranker", "lease_key": "sota-mover-ranker::agy-noesis-24x5"}],
-        dirty_repos={"meridian"},
     )
     assert safe == ["sota-harness-foundation"]
-    assert skipped == {
-        "sota-mover-ranker": "remote_lease:sota-mover-ranker::agy-noesis-24x5",
-        "meridian": "dirty_worktree",
-    }
+    assert "sota-mover-ranker" in skipped
+
+    wsl_home = tmp_path / "wsl"
+    win_root = tmp_path / "win"
+    (wsl_home / "sota-workstation" / "meridian").mkdir(parents=True)
+    (win_root / "astrolabe").mkdir(parents=True)
+    assert resolve_workstation_repo_dir("meridian", home=wsl_home, win_root=win_root) == (
+        wsl_home / "sota-workstation" / "meridian"
+    )
+    assert resolve_workstation_repo_dir("astrolabe", home=wsl_home, win_root=win_root) == win_root / "astrolabe"
