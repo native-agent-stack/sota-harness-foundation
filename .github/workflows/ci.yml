@@ -50,12 +50,13 @@ jobs:
           assert not bad_accts, f"Account ID leak found: {bad_accts}"
           '
 
-      - name: Verify 19-ADR MADR 4.0 catalog zero-drift
+      - name: Verify 20-ADR MADR 4.0 catalog zero-drift
         run: uv run python scripts/architecture_catalog.py --check
 
-      - name: Validate multi-model routing, 5-stage compounding & 47-repo legacy harvest manifests
+      - name: Validate multi-model routing, compounding, legacy-harvest & dual-workstation manifests
         run: |
           uv run python scripts/runtime_fleet.py --config-only
+          uv run python scripts/workstation_lane.py --config-only
           PYTHONPATH=src uv run python -c "from cc_sota_harness.compounding_pipeline import validate_compounding_manifest, validate_legacy_harvest_manifest; _, e1 = validate_compounding_manifest(); _, e2 = validate_legacy_harvest_manifest(); assert not e1 and not e2, e1 + e2"
 
       - name: Run Ruff lint & ty static type check

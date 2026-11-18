@@ -1,0 +1,80 @@
+{
+  "manifestVersion": "1.0.0",
+  "verifiedAt": "2026-11-17",
+  "adrAuthority": "docs/adr/ADR-0020-dual-machine-portable-and-stationary-orca-workstation-lane.md",
+  "crossMachineProtocol": {
+    "supervisionPlane": "Orca Cross-Machine Runtime Pairing (ws://100.110.115.22:6770, worktree.lineage.crossMachine + terminal.paired-parking.v1)",
+    "meshNetwork": "Tailscale WireGuard Mesh (100.93.211.101 <-> 100.110.115.22) with sub-5ms LAN direct path",
+    "durableCodeAndStateSync": "https://github.com/native-agent-stack/* (Git branches + sota-private-vault + planning-with-files)",
+    "localIntraHostBus": "sota-bus SQLite WAL (~/.agents/bus/peer_bus.db) + hcom",
+    "singleActiveBrokerHostOnly": true,
+    "maxDockedRttMs": 1500.0,
+    "minBatteryPctHeavyAutonomous": 35.0,
+    "minBatteryPctPaperBroker": 25.0
+  },
+  "workstations": {
+    "portable_mac_lead": {
+      "machineId": "portable-mac-m5max-64gb",
+      "formFactor": "portable_workstation",
+      "platform": "darwin-arm64",
+      "cpu": "Apple M5 Max (18 cores)",
+      "cpuCores": 18,
+      "memoryGb": 64,
+      "tailscaleIp": "100.93.211.101",
+      "orcaHostSelector": "--host local",
+      "orcaCapabilitiesCount": 300,
+      "maxThreadsAc": 14,
+      "maxThreadsBattery": 8,
+      "maxThreadsLowBattery": 4,
+      "roles": [
+        "cc_lead_interactive",
+        "portable_heavy_duckdb_polars_autonomous",
+        "multi_model_cli_fabric_27_runtimes",
+        "cross_machine_orca_coordinator"
+      ]
+    },
+    "stationary_noesis_heavy": {
+      "machineId": "stationary-noesis-threadripper-4090",
+      "formFactor": "stationary_workstation",
+      "platform": "win32+wsl2(meridian,sextant)",
+      "cpu": "AMD Threadripper (64 logical cores)",
+      "cpuCores": 64,
+      "memoryGb": 128,
+      "gpu": "NVIDIA GeForce RTX 4090 (24564 MiB)",
+      "tailscaleIp": "100.110.115.22",
+      "orcaEnvironmentId": "8ffe74d7-9975-4765-a669-acf7de57510f",
+      "orcaRuntimeId": "4343bf39-d861-48fb-a7bf-c4a1713ed823",
+      "orcaEnvironmentSelector": "--environment 100.110.115.22",
+      "orcaVersion": "1.4.261",
+      "orcaCapabilitiesCount": 312,
+      "workspaceRoot": "C:/sota-workstation",
+      "maxThreadsAc": 56,
+      "roles": [
+        "heavy_combinatorial_cpcv_sweeps",
+        "lid_closed_parked_worker_execution",
+        "rtx4090_gpu_and_local_model_evals",
+        "cross_os_win32_wsl2_parity_gate"
+      ],
+      "provisionedOrcaRepos": {
+        "sota-harness-foundation": "3c64b92a-ec58-4e82-b85d-42bad91048b1",
+        "native-agent-stack": "a1875711-afb6-41c3-9ae2-a9e6e46af082",
+        "sota-multi-model-workflows": "b2a240a3-c908-447e-8f7f-1ff9942762e7",
+        "sota-compounding-lab": "46980ada-367d-4ba8-a487-a44940db96fd",
+        "sota-upstream-shelf-lock": "9a888eb1-f259-4bdb-9b13-11578d4d0efb",
+        "agy-sota-harness": "c30acf34-379b-4b70-88ed-2672d809bfd1",
+        "dsh-sota-harness": "c81404da-bd88-4a58-9dc2-185334f85933",
+        "astrolabe": "85bcd7a6-6c3d-4f82-aeac-b64ff24c74bd",
+        "cc-sota-harness": "e9d7444e-7ed1-4207-b67f-6267379a5688",
+        "sota-mover-ranker": "492fe9dd-cc6d-454d-98dc-e228050f04f5",
+        "sota-dynamic-trail-c": "204a2a75-42c0-4678-b95f-b0f78de29cc2",
+        "meridian": "29f0498e-2fb5-480c-96fe-98d7f2c5b86b",
+        "sota-private-vault": "cb466c3d-99ff-4825-8e60-91943f78b28a",
+        "trading-sota": "e66600d7-dd6b-4e0d-8586-95eaed3312c9",
+        "tsl": "1e2193b7-a724-41ce-b92e-0c1083b6113a",
+        "canon": "7ad94fb5-c149-4831-915e-ca20ef628cae",
+        "dsh-plugin-landscape": "d459e8bb-8226-4274-b3f1-ee1830c8ba58",
+        ".github": "46bff41f-50d5-49ac-bfca-6e0559ccb868"
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+# Orca (https://github.com/stablyai/orca) dual-machine workspace recipe for cc-sota-harness
+# Supports portable Apple M5 Max (macOS) + paired stationary Noesis 64c/128GB/RTX4090 (Windows + WSL2).
+scripts:
+  setup: |
+    if command -v mise >/dev/null 2>&1; then
+      mise trust
+      mise install --yes
+      mise exec -- uv sync --locked
+    else
+      uv sync --locked
+    fi
+setupAgentStartupPolicy: wait-for-setup
+defaultTabs:
+  - title: CC Lead
+  - title: Dual-Workstation Lane
+    command: uv run python scripts/workstation_lane.py
+  - title: Harness & Fleet Doctor
+    command: mise exec -- uv run python scripts/doctor.py && mise exec -- uv run python scripts/runtime_fleet.py
+  - title: SOTA Shelf & Tests
+    command: uv run pytest
