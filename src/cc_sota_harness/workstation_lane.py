@@ -225,8 +225,17 @@ def resolve_workstation_placement(
             orca_command_template="orca orchestration worker-start --spec '<task>' --worktree new-child --agent codex",
         )
 
-    # HEAVY_PREWALL_RESEARCH: prefers 64c stationary Noesis when on battery + mesh, or docked; seamlessly runs on M5 Max when carried!
-    if mode == WorkstationTopologyMode.DUAL_MESH_ON_BATTERY:
+    # HEAVY_PREWALL_RESEARCH: offloads to 64c stationary Noesis when on battery + mesh OR when portable_mac_lead
+    # holds the live 24x5 paper broker lease (:8787/:8799/:4002 sub-50ms jitter shield); runs on M5 Max otherwise.
+    if mesh_online and (
+        mode == WorkstationTopologyMode.DUAL_MESH_ON_BATTERY or telemetry.active_broker_host == "portable_mac_lead"
+    ):
+        offload_reason = (
+            "Portable Mac holds active 24x5 paper broker lease (:8787/:8799/:4002): offloading 56-thread pre-wall "
+            "research to Noesis-Carbon ext4 to preserve sub-50ms quote/stop latency"
+            if telemetry.active_broker_host == "portable_mac_lead" and mode == WorkstationTopologyMode.DUAL_MESH_DOCKED
+            else "Portable Mac on battery with live Tailscale mesh: offloading heavy research to 64c Noesis to save battery"
+        )
         return PlacementDecision(
             topology_mode=mode,
             workload=workload,
@@ -236,7 +245,7 @@ def resolve_workstation_placement(
             keep_caffeinate_awake=False,
             requires_checkpoint_files=True,
             approved=True,
-            reason="Portable Mac on battery with live Tailscale mesh: offloading heavy research to 64c Noesis to save battery",
+            reason=offload_reason,
             orca_command_template=(
                 f"orca orchestration worker-start --task <task_id> --on 100.110.115.22 "
                 f"--worktree new-child --repo {repo_sel} --name <name> --agent codex --setup run"
@@ -525,3 +534,323 @@ def resolve_workstation_repo_dir(
         if cand.is_dir():
             return cand
     return candidates[0]
+
+
+def resolve_prewall_lake_root(
+    *,
+    home: pathlib.Path | None = None,
+    wsl_lake: pathlib.Path | None = None,
+    win_lake: pathlib.Path | None = None,
+) -> pathlib.Path:
+    """Resolve canonical `<= 2026-10-15` pre-wall Parquet lake across Mac M5 Max, Noesis Win32, and Noesis-Carbon WSL2."""
+    h = home if home is not None else pathlib.Path.home()
+    wsl_p = wsl_lake if wsl_lake is not None else pathlib.Path("/mnt/z/sota-data/prewall-lake")
+    win_p = win_lake if win_lake is not None else pathlib.Path("Z:/sota-data/prewall-lake")
+    mac_p = h / "Documents" / "market-data"
+    for cand in (wsl_p, win_p, h / "sota-data" / "prewall-lake", mac_p):
+        if cand.is_dir():
+            return cand
+    return mac_p
+
+
+@dataclass(frozen=True, slots=True)
+class TradingLaneSpec:
+    lane_id: str
+    stage: str
+    repos: tuple[str, ...]
+    workload_kind: WorkloadKind
+    single_writer_paper_only: bool
+    endpoint_or_feed: str
+    stop_cap_pct: float
+
+
+@dataclass(frozen=True, slots=True)
+class HarnessLaneSpec:
+    lane_id: str
+    layer: str
+    repos: tuple[str, ...]
+    primary_framework: str
+    lead_model_id: str
+    challenger_model_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class OrchestrationFrameworkSpec:
+    framework_id: str
+    upstream_ref: str
+    primary_binary: str
+    supported_vendors: tuple[str, ...]
+    enforces_one_model_per_session: bool
+    forbids_gpt_on_hephaestus: bool
+
+
+CANONICAL_TRADING_LANES: tuple[TradingLaneSpec, ...] = (
+    TradingLaneSpec(
+        lane_id="T1_MERIDIAN_NAUTILUS_QUEUE_SIM",
+        stage="Stage1_Simulation",
+        repos=("meridian",),
+        workload_kind=WorkloadKind.COMBINATORIAL_GPU_BATCH,
+        single_writer_paper_only=False,
+        endpoint_or_feed="NautilusTrader v2.0.0rc9 + hftbacktest::RiskAdverseQueueModel",
+        stop_cap_pct=2.0,
+    ),
+    TradingLaneSpec(
+        lane_id="T2_PREWALL_CAUSAL_ALPHA_LAB",
+        stage="Stage2_PreWall_Research",
+        repos=("canon", "trading-sota", "tsl"),
+        workload_kind=WorkloadKind.HEAVY_PREWALL_RESEARCH,
+        single_writer_paper_only=False,
+        endpoint_or_feed="sota-research-feeds.v2 <= 2026-10-15 (Z:/sota-data/prewall-lake <-> ~/Documents/market-data)",
+        stop_cap_pct=2.0,
+    ),
+    TradingLaneSpec(
+        lane_id="T3A_ALPACA_200RPM_SIP_PAPER",
+        stage="Stage3A_Alpaca_Paper",
+        repos=("sota-mover-ranker",),
+        workload_kind=WorkloadKind.PAPER_BROKER_24X5,
+        single_writer_paper_only=True,
+        endpoint_or_feed="http://127.0.0.1:8787 -> paper-api.alpaca.markets (<=200 req/min)",
+        stop_cap_pct=2.0,
+    ),
+    TradingLaneSpec(
+        lane_id="T3B_IBKR_4002_NAUTILUS_PAPER",
+        stage="Stage3B_IBKR_Paper",
+        repos=("astrolabe",),
+        workload_kind=WorkloadKind.PAPER_BROKER_24X5,
+        single_writer_paper_only=True,
+        endpoint_or_feed="127.0.0.1:4002 IBKR Paper L1 (<=3,000 msg/min; 4001/7496 hard-refused)",
+        stop_cap_pct=2.0,
+    ),
+    TradingLaneSpec(
+        lane_id="T4_T5_COMPOUNDING_GUARDIAN_VAULT",
+        stage="Stage4_5_Compounding_And_Guardian",
+        repos=("sota-compounding-lab", "sota-dynamic-trail-c", "sota-private-vault"),
+        workload_kind=WorkloadKind.PAPER_BROKER_24X5,
+        single_writer_paper_only=True,
+        endpoint_or_feed="http://127.0.0.1:8799 [P]/[L]/[M]/[B]/[S] + EB Shrinkage (N>=30 -> N>=250)",
+        stop_cap_pct=2.0,
+    ),
+)
+
+CANONICAL_HARNESS_LANES: tuple[HarnessLaneSpec, ...] = (
+    HarnessLaneSpec(
+        lane_id="H0_ORG_GOVERNANCE_CI",
+        layer="L0",
+        repos=(".github",),
+        primary_framework="stablyai/orca",
+        lead_model_id="claude-fable-5-2",
+        challenger_model_id="gpt-6.2-astra",
+    ),
+    HarnessLaneSpec(
+        lane_id="H1_ECOSYSTEM_UMBRELLA_LOCK",
+        layer="L1",
+        repos=("native-agent-stack",),
+        primary_framework="oh-my-claudecode",
+        lead_model_id="claude-fable-5-2",
+        challenger_model_id="gemini-4-carbon-high",
+    ),
+    HarnessLaneSpec(
+        lane_id="H2_UPSTREAM_40SHA_SHELF_LOCK",
+        layer="L2",
+        repos=("sota-upstream-shelf-lock",),
+        primary_framework="google-antigravity",
+        lead_model_id="gemini-4-carbon-high",
+        challenger_model_id="claude-opus-5-5",
+    ),
+    HarnessLaneSpec(
+        lane_id="H3_OPEN_CORE_MULTI_RUNTIME_FOUNDATION",
+        layer="L3",
+        repos=("sota-harness-foundation",),
+        primary_framework="oh-my-claudecode",
+        lead_model_id="claude-fable-5-2",
+        challenger_model_id="gpt-6.2-astra",
+    ),
+    HarnessLaneSpec(
+        lane_id="H4_ANTIGRAVITY_L0_L12_HARNESS",
+        layer="L4",
+        repos=("agy-sota-harness",),
+        primary_framework="google-antigravity",
+        lead_model_id="gemini-4-carbon-high",
+        challenger_model_id="gpt-6.2-astra",
+    ),
+    HarnessLaneSpec(
+        lane_id="H5_CLAUDE_LEAD_28RUNTIME_HARNESS",
+        layer="L5",
+        repos=("cc-sota-harness",),
+        primary_framework="oh-my-claudecode",
+        lead_model_id="claude-fable-5-2",
+        challenger_model_id="kimi-k3.1-pro",
+    ),
+    HarnessLaneSpec(
+        lane_id="H6_DEEPSEEK_10LAYER_HARNESS",
+        layer="L6",
+        repos=("dsh-sota-harness", "dsh-plugin-landscape"),
+        primary_framework="deepseek-harness",
+        lead_model_id="deepseek-v4-pro",
+        challenger_model_id="claude-sonnet-5-5",
+    ),
+    HarnessLaneSpec(
+        lane_id="H7_MULTI_MODEL_WORKFLOWS_WAL_BUS",
+        layer="L7",
+        repos=("sota-multi-model-workflows",),
+        primary_framework="hcom-and-sota-peer-bus",
+        lead_model_id="claude-fable-5-2",
+        challenger_model_id="gemini-4-carbon-high",
+    ),
+)
+
+CANONICAL_ORCHESTRATION_FRAMEWORKS: tuple[OrchestrationFrameworkSpec, ...] = (
+    OrchestrationFrameworkSpec(
+        framework_id="stablyai/orca",
+        upstream_ref="https://github.com/stablyai/orca",
+        primary_binary="orca",
+        supported_vendors=("Anthropic", "OpenAI", "Google DeepMind", "Moonshot AI", "Meta"),
+        enforces_one_model_per_session=True,
+        forbids_gpt_on_hephaestus=True,
+    ),
+    OrchestrationFrameworkSpec(
+        framework_id="oh-my-claudecode",
+        upstream_ref="oh-my-claudecode@omc (Runtime v2)",
+        primary_binary="omc",
+        supported_vendors=("Anthropic", "OpenAI", "Google DeepMind", "xAI", "Meta"),
+        enforces_one_model_per_session=True,
+        forbids_gpt_on_hephaestus=True,
+    ),
+    OrchestrationFrameworkSpec(
+        framework_id="oh-my-codex",
+        upstream_ref="codex@openai-codex + omx",
+        primary_binary="omx",
+        supported_vendors=("OpenAI",),
+        enforces_one_model_per_session=True,
+        forbids_gpt_on_hephaestus=True,
+    ),
+    OrchestrationFrameworkSpec(
+        framework_id="google-antigravity",
+        upstream_ref="agy + run_workflow Python DAGs",
+        primary_binary="agy",
+        supported_vendors=("Google DeepMind", "Anthropic"),
+        enforces_one_model_per_session=True,
+        forbids_gpt_on_hephaestus=True,
+    ),
+    OrchestrationFrameworkSpec(
+        framework_id="oh-my-openagent",
+        upstream_ref="opencode + OMO Hephaestus",
+        primary_binary="oh-my-openagent",
+        supported_vendors=("Moonshot AI", "Anthropic", "DeepSeek"),
+        enforces_one_model_per_session=True,
+        forbids_gpt_on_hephaestus=True,
+    ),
+    OrchestrationFrameworkSpec(
+        framework_id="deepseek-harness",
+        upstream_ref="dsh + L0-L9 probes",
+        primary_binary="dsh",
+        supported_vendors=("DeepSeek",),
+        enforces_one_model_per_session=True,
+        forbids_gpt_on_hephaestus=True,
+    ),
+    OrchestrationFrameworkSpec(
+        framework_id="hcom-and-sota-peer-bus",
+        upstream_ref="aannoo/hcom + SQLite WAL + @@B64: E2EE",
+        primary_binary="hcom",
+        supported_vendors=("Anthropic", "OpenAI", "Google DeepMind", "DeepSeek", "Moonshot AI", "xAI", "Meta"),
+        enforces_one_model_per_session=True,
+        forbids_gpt_on_hephaestus=True,
+    ),
+    OrchestrationFrameworkSpec(
+        framework_id="pi-omp-goose-superspec",
+        upstream_ref="pi + omp + goose + github/spec-kit + obra/superpowers",
+        primary_binary="pi",
+        supported_vendors=("Anthropic", "Moonshot AI", "DeepSeek"),
+        enforces_one_model_per_session=True,
+        forbids_gpt_on_hephaestus=True,
+    ),
+)
+
+
+def resolve_orca_lane_topology(
+    telemetry: HostTelemetry,
+    *,
+    manifest_path: pathlib.Path | None = None,
+) -> dict[str, Any]:
+    """Validate 18-repo bijection across T1..T5 & H0..H7 and compute live Dual-Machine Orca placements."""
+    manifest, errors = validate_dual_workstation_manifest(manifest_path)
+    if errors:
+        raise ValueError(f"Invalid dual-workstation manifest: {errors}")
+
+    provisioned: dict[str, str] = manifest["workstations"]["stationary_noesis_heavy"]["provisionedOrcaRepos"]
+    trading_repos = [r for lane in CANONICAL_TRADING_LANES for r in lane.repos]
+    harness_repos = [r for lane in CANONICAL_HARNESS_LANES for r in lane.repos]
+    combined = trading_repos + harness_repos
+    if len(combined) != len(set(combined)) or set(combined) != set(provisioned.keys()):
+        raise ValueError(
+            f"Trading (T1..T5) + Harness (H0..H7) lanes must form an exact 18-repo bijection with provisionedOrcaRepos; "
+            f"combined={sorted(combined)}, provisioned={sorted(provisioned.keys())}"
+        )
+
+    for lane in CANONICAL_TRADING_LANES:
+        if not (0.0 < lane.stop_cap_pct <= 2.0):
+            raise ValueError(f"ADR-0022 violation on {lane.lane_id}: stop_cap_pct={lane.stop_cap_pct}")
+
+    distinct_vendors = {v for fw in CANONICAL_ORCHESTRATION_FRAMEWORKS for v in fw.supported_vendors}
+    if len(distinct_vendors) < 4:
+        raise ValueError(
+            f"Expected >= 4 distinct model vendors across orchestration frameworks, got {distinct_vendors}"
+        )
+
+    broker_host = telemetry.active_broker_host or "portable_mac_lead"
+    trading_placements: dict[str, dict[str, Any]] = {}
+    for lane in CANONICAL_TRADING_LANES:
+        anchor_repo = lane.repos[0]
+        dec = resolve_workstation_placement(
+            telemetry,
+            lane.workload_kind,
+            repo_name=anchor_repo,
+            remote_repo_id=provisioned.get(anchor_repo),
+            candidate_broker_host=broker_host,
+        )
+        trading_placements[lane.lane_id] = {
+            "stage": lane.stage,
+            "repos": list(lane.repos),
+            "targetHost": dec.target_host,
+            "orcaSelector": dec.orca_selector,
+            "allocatedThreads": dec.allocated_threads,
+            "approved": dec.approved,
+            "singleWriterPaperOnly": lane.single_writer_paper_only,
+            "endpointOrFeed": lane.endpoint_or_feed,
+        }
+
+    harness_placements: dict[str, dict[str, Any]] = {}
+    for h_lane in CANONICAL_HARNESS_LANES:
+        anchor_repo = h_lane.repos[0]
+        w_kind = (
+            WorkloadKind.INTERACTIVE_LEAD
+            if h_lane.layer in {"L0", "L1", "L3", "L5", "L7"}
+            else WorkloadKind.HEAVY_PREWALL_RESEARCH
+        )
+        dec = resolve_workstation_placement(
+            telemetry,
+            w_kind,
+            repo_name=anchor_repo,
+            remote_repo_id=provisioned.get(anchor_repo),
+            candidate_broker_host=broker_host,
+        )
+        harness_placements[h_lane.lane_id] = {
+            "layer": h_lane.layer,
+            "repos": list(h_lane.repos),
+            "primaryFramework": h_lane.primary_framework,
+            "leadModel": h_lane.lead_model_id,
+            "challengerModel": h_lane.challenger_model_id,
+            "targetHost": dec.target_host,
+            "orcaSelector": dec.orca_selector,
+            "allocatedThreads": dec.allocated_threads,
+        }
+
+    return {
+        "manifestVersion": manifest.get("manifestVersion"),
+        "topologyMode": str(classify_topology_mode(telemetry)),
+        "reposPartitionedTotal": len(combined),
+        "distinctVendorsTotal": len(distinct_vendors),
+        "frameworksTotal": len(CANONICAL_ORCHESTRATION_FRAMEWORKS),
+        "tradingLanes": trading_placements,
+        "harnessLanes": harness_placements,
+    }
