@@ -1,0 +1,45 @@
+[project]
+name = "cc-sota-harness"
+version = "1.0.0"
+description = "Clean Upstream-First Claude Code Practice & SOTA Trading System Building Harness inside Orca (L0-L11 x T0-T8)"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "polars==2.1.0",
+    "duckdb>=1.1.0",
+    "pyarrow==26.0.1",
+    "pandera==0.35.0",
+    "exchange-calendars==4.13.2",
+    "ml4t-diagnostic==0.2.0",
+    "skfolio==1.12.7",
+    "statsmodels==0.15.0",
+    "pyyaml==6.0.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+    "ruff==0.17.4",
+    "hypothesis==6.170.15",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "src"]
+addopts = "-q -p no:cacheprovider"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = [".venv", ".beads", ".codegraph", "private", ".omc", ".agents/skills", ".claude/skills"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+ignore = ["E501"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.14"
+extraPaths = ["src"]
+include = ["src", "scripts", "tests"]
+exclude = [".venv", ".beads", ".codegraph", "private", ".omc", ".agents/skills", ".claude/skills"]

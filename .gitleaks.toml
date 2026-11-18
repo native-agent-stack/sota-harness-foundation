@@ -1,0 +1,22 @@
+title = "cc-sota-harness secret & trading-account firewall"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "broker-paper-or-demo-account-id"
+description = "Alpaca Paper (PA...) or IBKR Paper (DU...) account identifier"
+regex = '''\b(?:PA|DU)[0-9A-Z]{6,16}\b'''
+tags = ["account", "trading", "privacy"]
+
+[[rules]]
+id = "alpaca-api-key-id"
+description = "Alpaca API Key ID (PK... or AK...)"
+regex = '''\b(?:PK|AK)[0-9A-Z]{16,32}\b'''
+tags = ["key", "alpaca", "trading"]
+
+[[rules]]
+id = "anthropic-or-openai-key"
+description = "Anthropic or OpenAI secret key"
+regex = '''\bsk-(?:ant-|proj-)?[A-Za-z0-9_\-]{20,}\b'''
+tags = ["key", "llm"]

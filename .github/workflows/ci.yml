@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          version: "0.13.7"
+          python-version: "3.13"
+
+      - name: Sync locked Python environment
+        run: uv sync --locked
+
+      - name: Enforce zero home paths or secret prefixes in tracked files
+        run: |
+          uv run python -c '
+          import pathlib, re, subprocess
+          needle = "/" + "Users/"
+          acct_re = re.compile(r"\b(?:PA|DU)[0-9A-Z]{6,16}\b")
+          files = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          bad_paths, bad_accts = [], []
+          for f in files:
+              p = pathlib.Path(f)
+              if not p.is_file():
+                  continue
+              txt = p.read_text(encoding="utf-8", errors="ignore")
+              if needle in txt:
+                  bad_paths.append(f)
+              if f not in (".gitleaks.toml", "uv.lock", "mise.lock") and acct_re.search(txt):
+                  bad_accts.append(f)
+          assert not bad_paths, f"Hardcoded home paths found: {bad_paths}"
+          assert not bad_accts, f"Account ID leak found: {bad_accts}"
+          '
+
+      - name: Verify 18-ADR MADR 4.0 catalog zero-drift
+        run: uv run python scripts/architecture_catalog.py --check
+
+      - name: Validate multi-model routing & 5-stage strategy compounding manifests
+        run: |
+          uv run python scripts/runtime_fleet.py --config-only
+          PYTHONPATH=src uv run python -c "from cc_sota_harness.compounding_pipeline import validate_compounding_manifest; _, errs = validate_compounding_manifest(); assert not errs, errs"
+
+      - name: Run Ruff lint & ty static type check
+        run: |
+          uv run ruff check .
+          uvx ty@0.0.104 check src scripts tests
+
+      - name: Run pytest, Hypothesis property & RuleBasedStateMachine stateful fuzzing suite
+        run: uv run pytest -v

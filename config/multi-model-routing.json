@@ -1,0 +1,277 @@
+{
+  "schemaVersion": "1.0.0",
+  "verifiedAt": "2026-11-17",
+  "benchmarkSource": {
+    "provider": "Artificial Analysis",
+    "url": "https://artificialanalysis.ai/models",
+    "intelligenceIndexVersion": "v5.0.1",
+    "codingAgentIndexVersion": "v2.1 (FrontierCode-AA 2.0 + Terminal-Bench 4.1)"
+  },
+  "invariants": {
+    "oneModelPerConversation": true,
+    "hephaestusForbidsGptModels": true,
+    "sisyphusCostLeverTier": "sonnet-or-openweights-pro",
+    "paperOnlyTradingFirewall": true,
+    "studyWallDate": "2026-10-15"
+  },
+  "ccLead": {
+    "workspaceName": "cc-lead",
+    "primaryRuntime": "claude",
+    "orchestratorPlugin": "oh-my-claudecode@omc",
+    "defaultModelAlias": "fable",
+    "defaultModelId": "claude-fable-5-2",
+    "effortLevel": "xhigh",
+    "autoCompactWindow": 600000,
+    "advisorModel": "claude-fable-5-2",
+    "omcWorkerDefaultEnv": {
+      "OMC_CODEX_DEFAULT_MODEL": "gpt-6.2-astra",
+      "OMC_ANTIGRAVITY_DEFAULT_MODEL": "gemini-4-carbon-high",
+      "OMC_GEMINI_DEFAULT_MODEL": "gemini-4-carbon-high",
+      "OMC_GROK_DEFAULT_MODEL": "grok-4.7",
+      "OMC_JEV_MAX_EFFORT": "xhigh"
+    }
+  },
+  "frontierModels": [
+    {
+      "id": "claude-fable-5-2",
+      "alias": "fable",
+      "vendor": "Anthropic",
+      "aaIntelligenceIndexApprox": 65,
+      "aaCodingAgentIndexApprox": 58,
+      "rankSummary": "#1 Overall Intelligence Index & #1 Coding Agent Index",
+      "defaultEffort": "xhigh",
+      "primaryRole": "CC Lead architect, MADR 4.0 spec author, Oracle/Prometheus/Hyperplan planner, and statistical gate synthesizer"
+    },
+    {
+      "id": "gpt-6.2-astra",
+      "alias": "gpt-6.2-astra",
+      "vendor": "OpenAI",
+      "aaIntelligenceIndexApprox": 62,
+      "aaCodingAgentIndexApprox": 56,
+      "rankSummary": "#2 Overall Intelligence Index (frontier OpenAI reasoning)",
+      "defaultEffort": "max",
+      "primaryRole": "Cross-family adversarial code/math review (/codex:adversarial-review, omc ask codex) and isolated Orca Codex worktrees"
+    },
+    {
+      "id": "gemini-4-carbon-high",
+      "alias": "gemini-4-carbon-high",
+      "vendor": "Google DeepMind",
+      "aaIntelligenceIndexApprox": 60,
+      "aaCodingAgentIndexApprox": 55,
+      "rankSummary": "#3 Overall Intelligence Index & #1 1M+ long-horizon context synthesis",
+      "defaultEffort": "high",
+      "primaryRole": "Multi-repo upstream shelf synthesis (18 clones), SEC filing / paper synthesis, and independent 3rd-family security review (agy / gemini)"
+    },
+    {
+      "id": "claude-opus-5-5",
+      "alias": "opus",
+      "vendor": "Anthropic",
+      "aaIntelligenceIndexApprox": 59,
+      "aaCodingAgentIndexApprox": 58,
+      "rankSummary": "#4 Overall & Co-#1 Coding Agent Index",
+      "defaultEffort": "high",
+      "primaryRole": "quant-falsifier adversarial subagent (HLZ/DSR/CPCV/PBO) and Trail of Bits security/dimensional audits"
+    },
+    {
+      "id": "gpt-6.2-sol",
+      "alias": "gpt-6.2-sol",
+      "vendor": "OpenAI",
+      "aaIntelligenceIndexApprox": 57,
+      "aaCodingAgentIndexApprox": 53,
+      "rankSummary": "High-throughput / cost-efficient GPT-6.2 coding & verification tier",
+      "defaultEffort": "high",
+      "primaryRole": "Parallel OMX / Codex worker implementation sweeps and rapid test generation"
+    },
+    {
+      "id": "claude-sonnet-5-5",
+      "alias": "sonnet",
+      "vendor": "Anthropic",
+      "aaIntelligenceIndexApprox": 52,
+      "aaCodingAgentIndexApprox": 52,
+      "rankSummary": "Primary high-ROI Anthropic implementation tier",
+      "defaultEffort": "high",
+      "primaryRole": "OMC Sisyphus & Hephaestus execution loops, execution-verifier, and shelf-synthesizer subagents"
+    },
+    {
+      "id": "claude-haiku-5-5",
+      "alias": "haiku",
+      "vendor": "Anthropic",
+      "aaIntelligenceIndexApprox": 41,
+      "aaCodingAgentIndexApprox": 40,
+      "rankSummary": "Low-latency deterministic routing & triage tier",
+      "defaultEffort": "medium",
+      "primaryRole": "Fast intent classification, metadata extraction, and lightweight hook triage"
+    },
+    {
+      "id": "deepseek-v4-pro",
+      "alias": "deepseek-v4.1",
+      "vendor": "DeepSeek",
+      "aaIntelligenceIndexApprox": 48,
+      "aaCodingAgentIndexApprox": 47,
+      "rankSummary": "Top cost-efficiency execution & coordinator open-weights family",
+      "defaultEffort": "high",
+      "primaryRole": "DeepSeek Harness (dsh / dsh-tui) autonomous batch execution and OMC/OMO budget Sisyphus/Hermes slots"
+    },
+    {
+      "id": "kimi-k3.1-pro",
+      "alias": "kimi-k3.1",
+      "vendor": "Moonshot AI",
+      "aaIntelligenceIndexApprox": 46,
+      "aaCodingAgentIndexApprox": 45,
+      "rankSummary": "#1 Open-Weights Intelligence Index leader",
+      "defaultEffort": "high",
+      "primaryRole": "Non-GPT Hephaestus / OpenCode / OMO / Pi / Goose open-weights coding & OmniRoute fallback"
+    },
+    {
+      "id": "grok-4.7",
+      "alias": "grok-4.7",
+      "vendor": "xAI",
+      "aaIntelligenceIndexApprox": 54,
+      "aaCodingAgentIndexApprox": 50,
+      "rankSummary": "Frontier real-time reasoning & search challenger",
+      "defaultEffort": "high",
+      "primaryRole": "omc ask grok second-opinion & OmniRoute real-time regime cross-check"
+    },
+    {
+      "id": "muse-spark-1.3",
+      "alias": "muse",
+      "vendor": "Meta",
+      "aaIntelligenceIndexApprox": 50,
+      "aaCodingAgentIndexApprox": 48,
+      "rankSummary": "Independent Meta coding & critic agent family",
+      "defaultEffort": "high",
+      "primaryRole": "omc ask muse --agent-prompt critic & Orca muse worker sessions"
+    }
+  ],
+  "omcOmoAgentMatrix": {
+    "Prometheus": {
+      "role": "Strategic planning & spec decomposition",
+      "premiumModel": "claude-fable-5-2",
+      "balancedModel": "claude-opus-5-5",
+      "forbidPrefixes": []
+    },
+    "Hyperplan": {
+      "role": "Consensus architecture & ADR design",
+      "premiumModel": "claude-fable-5-2",
+      "balancedModel": "gpt-6.2-astra",
+      "forbidPrefixes": []
+    },
+    "Oracle": {
+      "role": "Final adversarial verification & invariant sign-off",
+      "premiumModel": "claude-fable-5-2",
+      "balancedModel": "claude-opus-5-5",
+      "forbidPrefixes": []
+    },
+    "Sisyphus": {
+      "role": "High-volume implementation loop (primary token-cost lever)",
+      "premiumModel": "claude-sonnet-5-5",
+      "balancedModel": "deepseek-v4-pro",
+      "forbidPrefixes": []
+    },
+    "Hephaestus": {
+      "role": "Structured multi-file synthesis & refactoring (non-GPT only)",
+      "premiumModel": "claude-sonnet-5-5",
+      "balancedModel": "kimi-k3.1-pro",
+      "forbidPrefixes": ["gpt-"]
+    },
+    "Aletheia": {
+      "role": "Evidence & test verification pass",
+      "premiumModel": "claude-sonnet-5-5",
+      "balancedModel": "deepseek-v4-pro",
+      "forbidPrefixes": []
+    },
+    "Hermes": {
+      "role": "Lightweight multi-agent coordinator",
+      "premiumModel": "claude-sonnet-5-5",
+      "balancedModel": "deepseek-v4-flash",
+      "forbidPrefixes": []
+    }
+  },
+  "taskRouting": [
+    {
+      "taskClass": "lead_architecture_adr_and_spec",
+      "primaryRuntime": "claude",
+      "orchestrator": "oh-my-claudecode (ralplan)",
+      "primaryModel": "claude-fable-5-2",
+      "challengerRuntime": "codex",
+      "challengerModel": "gpt-6.2-astra"
+    },
+    {
+      "taskClass": "parallel_worktree_implementation",
+      "primaryRuntime": "claude",
+      "orchestrator": "orca + worktrunk + omc team",
+      "primaryModel": "claude-sonnet-5-5",
+      "challengerRuntime": "opencode",
+      "challengerModel": "kimi-k3.1-pro"
+    },
+    {
+      "taskClass": "cross_family_adversarial_code_and_math_audit",
+      "primaryRuntime": "codex",
+      "orchestrator": "codex@openai-codex + oh-my-codex + council",
+      "primaryModel": "gpt-6.2-astra",
+      "challengerRuntime": "agy",
+      "challengerModel": "gemini-4-carbon-high"
+    },
+    {
+      "taskClass": "long_horizon_1m_shelf_and_filing_synthesis",
+      "primaryRuntime": "agy",
+      "orchestrator": "gemini-cli + omc ask antigravity",
+      "primaryModel": "gemini-4-carbon-high",
+      "challengerRuntime": "claude",
+      "challengerModel": "claude-fable-5-2"
+    },
+    {
+      "taskClass": "quant_prewall_hypothesis_falsification",
+      "primaryRuntime": "claude",
+      "orchestrator": "autoresearch + aris + quant-falsifier",
+      "primaryModel": "claude-opus-5-5",
+      "challengerRuntime": "codex",
+      "challengerModel": "gpt-6.2-astra"
+    },
+    {
+      "taskClass": "graph_engineered_polyglot_agent_loops",
+      "primaryRuntime": "opencode",
+      "orchestrator": "oh-my-openagent (OMO) + pi + oh-my-pi (OMP)",
+      "primaryModel": "claude-sonnet-5-5",
+      "challengerRuntime": "dsh",
+      "challengerModel": "deepseek-v4-pro"
+    },
+    {
+      "taskClass": "quota_resilient_gateway_and_eval_matrix",
+      "primaryRuntime": "omniroute",
+      "orchestrator": "claude-code-router (ccr) + rtk + promptfoo",
+      "primaryModel": "claude-fable-5-2",
+      "challengerRuntime": "goose",
+      "challengerModel": "kimi-k3.1-pro"
+    }
+  ],
+  "installedRuntimes": [
+    {"name": "claude", "binary": "claude", "orcaNativeAgent": "claude", "harnessPair": "oh-my-claudecode (omc)", "category": "lead-runtime"},
+    {"name": "omc", "binary": "omc", "orcaNativeAgent": "claude", "harnessPair": "oh-my-claudecode@omc", "category": "orchestrator"},
+    {"name": "codex", "binary": "codex", "orcaNativeAgent": "codex", "harnessPair": "oh-my-codex (omx)", "category": "worker-runtime"},
+    {"name": "omx", "binary": "omx", "orcaNativeAgent": "codex", "harnessPair": "codex@openai-codex", "category": "orchestrator"},
+    {"name": "agy", "binary": "agy", "orcaNativeAgent": "agy", "harnessPair": "OMC_ANTIGRAVITY_DEFAULT_MODEL", "category": "worker-runtime"},
+    {"name": "gemini", "binary": "gemini", "orcaNativeAgent": null, "harnessPair": "OMC_GEMINI_DEFAULT_MODEL", "category": "worker-runtime"},
+    {"name": "opencode", "binary": "opencode", "orcaNativeAgent": "opencode", "harnessPair": "oh-my-openagent (omo)", "category": "worker-runtime"},
+    {"name": "oh-my-openagent", "binary": "oh-my-openagent", "orcaNativeAgent": "opencode", "harnessPair": "opencode", "category": "orchestrator"},
+    {"name": "pi", "binary": "pi", "orcaNativeAgent": "pi", "harnessPair": "oh-my-pi (omp)", "category": "worker-runtime"},
+    {"name": "omp", "binary": "omp", "orcaNativeAgent": "omp", "harnessPair": "pi", "category": "worker-runtime"},
+    {"name": "goose", "binary": "goose", "orcaNativeAgent": null, "harnessPair": "OmniRoute / MCP", "category": "worker-runtime"},
+    {"name": "dsh", "binary": "dsh", "orcaNativeAgent": null, "harnessPair": "dsh-tui", "category": "worker-runtime"},
+    {"name": "muse", "binary": "muse", "orcaNativeAgent": "muse", "harnessPair": "omc ask muse", "category": "worker-runtime"},
+    {"name": "omniroute", "binary": "omniroute", "orcaNativeAgent": null, "harnessPair": "rtk + caveman", "category": "model-router"},
+    {"name": "ccr", "binary": "ccr", "orcaNativeAgent": null, "harnessPair": "claude-code-router", "category": "model-router"},
+    {"name": "rtk", "binary": "rtk", "orcaNativeAgent": null, "harnessPair": "token-compressor", "category": "context-efficiency"},
+    {"name": "qmd", "binary": "qmd", "orcaNativeAgent": null, "harnessPair": "bm25-vector-markdown", "category": "knowledge-search"},
+    {"name": "repomix", "binary": "repomix", "orcaNativeAgent": null, "harnessPair": "repo-packer", "category": "context-efficiency"},
+    {"name": "promptfoo", "binary": "promptfoo", "orcaNativeAgent": null, "harnessPair": "eval-and-redteam", "category": "eval-harness"},
+    {"name": "codeburn", "binary": "codeburn", "orcaNativeAgent": null, "harnessPair": "multi-agent-cost-tracker", "category": "observability"},
+    {"name": "wt", "binary": "wt", "orcaNativeAgent": null, "harnessPair": "worktrunk", "category": "worktree-orchestration"},
+    {"name": "llmfit", "binary": "llmfit", "orcaNativeAgent": null, "harnessPair": "hardware-model-fit", "category": "model-selection"},
+    {"name": "hcom", "binary": "hcom", "orcaNativeAgent": null, "harnessPair": "sota-peer-bus", "category": "cross-terminal-bus"},
+    {"name": "code-review-graph", "binary": "code-review-graph", "orcaNativeAgent": null, "harnessPair": "codebase-memory-mcp", "category": "code-intelligence"},
+    {"name": "cli-proxy-api", "binary": "cli-proxy-api", "orcaNativeAgent": null, "harnessPair": "CLIProxyAPI", "category": "model-router"},
+    {"name": "trivy", "binary": "trivy", "orcaNativeAgent": null, "harnessPair": "supply-chain-cve-scanner", "category": "security-gate"},
+    {"name": "markitdown", "binary": "markitdown", "orcaNativeAgent": null, "harnessPair": "sec-exhibit-pdf-parser", "category": "document-ingestion"}
+  ]
+}

@@ -1,0 +1,33 @@
+# Private account, credential, and local session state (NEVER tracked)
+private/
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.credentials.json
+
+# Virtual environments & caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+
+# Runtime & tool state
+.claude/settings.local.json
+.omc/
+.context-mode/
+.codegraph/
+.codebase-memory/
+node_modules/
+.DS_Store
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
+*.gate.lock*
+.mise/

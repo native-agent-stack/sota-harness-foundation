@@ -1,0 +1,125 @@
+{
+  "manifestVersion": "1.0.0",
+  "verifiedAt": "2026-11-17",
+  "studyWallDate": "2026-10-15",
+  "githubOrganization": {
+    "name": "native-agent-stack",
+    "url": "https://github.com/native-agent-stack",
+    "ciPolicy": "Public repositories run automated SHA-pinned GitHub Actions (unlimited free CI minutes); Private repositories protect proprietary alpha/lake trials and broker configs with workflow_dispatch zero involuntary quota burn.",
+    "publicUnlimitedCiRepos": [
+      "native-agent-stack/.github",
+      "native-agent-stack/native-agent-stack",
+      "native-agent-stack/sota-harness-foundation",
+      "native-agent-stack/sota-multi-model-workflows",
+      "native-agent-stack/sota-compounding-lab",
+      "native-agent-stack/sota-upstream-shelf-lock",
+      "native-agent-stack/agy-sota-harness",
+      "native-agent-stack/dsh-sota-harness",
+      "native-agent-stack/astrolabe"
+    ],
+    "privateAlphaAndVaultRepos": [
+      "native-agent-stack/cc-sota-harness",
+      "native-agent-stack/sota-mover-ranker",
+      "native-agent-stack/sota-dynamic-trail-c",
+      "native-agent-stack/trading-sota",
+      "native-agent-stack/meridian",
+      "native-agent-stack/sota-private-vault",
+      "native-agent-stack/sota-strategy-vault",
+      "native-agent-stack/ecosystem-records"
+    ],
+    "peerVerifiedCommitShas": {
+      "native-agent-stack/cc-sota-harness": "66d9cf491485ac6e4807e0e4dba413e68cdcba75",
+      "native-agent-stack/.github": "7db7d438",
+      "native-agent-stack/native-agent-stack": "4b8ca6208e8b2bb656f662df2708f6a70a3c7830",
+      "native-agent-stack/sota-multi-model-workflows": "da0f891d",
+      "native-agent-stack/sota-compounding-lab": "b120671dcc35c44be3370f1681bd7071246f538b",
+      "native-agent-stack/sota-upstream-shelf-lock": "045ddbc676a540906b3e3578d2778824e49a6ab6",
+      "native-agent-stack/agy-sota-harness": "7355520330214d7c44511f654047476c980c5884",
+      "native-agent-stack/dsh-sota-harness": "980d47a7703e0a1f250ef6787bea0da2d88abfe6",
+      "native-agent-stack/astrolabe": "f3511522c048ecde5f1a538387d9cf5b77f81262",
+      "native-agent-stack/sota-mover-ranker": "bae497602334cf8967c2af3491b55f6727fe601f",
+      "native-agent-stack/sota-dynamic-trail-c": "d6e25bf82fb8963c8629f648bafbf84222441f6b",
+      "native-agent-stack/trading-sota": "c7d60f5b9897ccb30223481de894ce9746e20505",
+      "native-agent-stack/meridian": "4dd0c20ef3c87159e783aea8d774759358bf1413"
+    }
+  },
+  "lifecycleStages": [
+    "0_hypothesis_prereg",
+    "1_sim_queue_parity",
+    "2_prewall_backtest",
+    "3_multimodel_falsification",
+    "4_paper_broker_execution",
+    "5_compounding_finetune"
+  ],
+  "paperBrokerTargets": [
+    {
+      "broker": "alpaca_paper",
+      "venuePrefix": "PA",
+      "endpointOrHost": "paper-api.alpaca.markets",
+      "port": null,
+      "maxRatePerMin": 200,
+      "entryRateCapPerMin": 180,
+      "protectiveExitReservePerMin": 20,
+      "protectiveStopPct": 0.02,
+      "rthContingency": "OTO",
+      "extendedSessionProtection": "awake_limit_guardian_24x5"
+    },
+    {
+      "broker": "ibkr_paper",
+      "venuePrefix": "DU",
+      "endpointOrHost": "127.0.0.1",
+      "port": 4002,
+      "maxRatePerMin": 3000,
+      "entryRateCapPerMin": 2700,
+      "protectiveExitReservePerMin": 300,
+      "protectiveStopPct": 0.02,
+      "rthContingency": "bracket_stop_limit",
+      "extendedSessionProtection": "outside_rth_stop_limit"
+    }
+  ],
+  "empiricalTrialsArchive": [
+    {
+      "strategyId": "REF_REJECTED_UNDER_2X_COST_EXAMPLE",
+      "trialN": 78,
+      "specSha256": "0000000000000000000000000000000000000000000000000000000000000078",
+      "status": "REJECTED_PREWALL",
+      "queueModel": "LogProbQueueModel2",
+      "calibrationMaxDate": "2026-10-15",
+      "eventsCount": 500,
+      "distinctDates": 180,
+      "cpcvPositiveShare": 0.8667,
+      "dsrProbability": 0.45,
+      "tStatClustered": 1.25,
+      "netReturn1xBps": 6.0,
+      "netReturn2xBps": -1.5,
+      "verifiedModelFamilies": ["anthropic", "google", "openai"]
+    },
+    {
+      "strategyId": "REF_REJECTED_TIGHT_TRAIL_NOISE_EXAMPLE",
+      "trialN": 79,
+      "specSha256": "0000000000000000000000000000000000000000000000000000000000000079",
+      "status": "REJECTED_PREWALL",
+      "queueModel": "RiskAdverseQueueModel",
+      "calibrationMaxDate": "2026-10-15",
+      "eventsCount": 500,
+      "distinctDates": 180,
+      "cpcvPositiveShare": 0.2,
+      "dsrProbability": 0.05,
+      "tStatClustered": -1.8,
+      "netReturn1xBps": -8.0,
+      "netReturn2xBps": -19.0,
+      "verifiedModelFamilies": ["anthropic", "openai", "google"]
+    }
+  ],
+  "nextHypothesisQueue": [
+    {
+      "strategyId": "REF_NEXT_RANGE_CALIBRATED_CANDIDATE",
+      "nextTrialN": 83,
+      "requiredHlzTHurdle": 4.155,
+      "prewallMedianBarRangeBps": 150.0,
+      "rangeMultiplier": 1.2,
+      "calibratedMaxStopPct": 0.018,
+      "targetBrokers": ["alpaca_paper", "ibkr_paper"]
+    }
+  ]
+}
