@@ -107,14 +107,14 @@
       "primaryRole": "Fast intent classification, metadata extraction, and lightweight hook triage"
     },
     {
-      "id": "deepseek-v4-pro",
-      "alias": "deepseek-v4.1",
+      "id": "deepseek-v4.1-flash",
+      "alias": "deepseek-flash",
       "vendor": "DeepSeek",
-      "aaIntelligenceIndexApprox": 48,
+      "aaIntelligenceIndexApprox": 33,
       "aaCodingAgentIndexApprox": 47,
-      "rankSummary": "Top cost-efficiency execution & coordinator open-weights family",
+      "rankSummary": "DeepSeek V4.1 Flash (552B MoE 8B/16B active, 1M context; official DSH slug deepseek-flash — supersedes deepseek-v4-pro)",
       "defaultEffort": "high",
-      "primaryRole": "DeepSeek Harness (dsh / dsh-tui) autonomous batch execution and OMC/OMO budget Sisyphus/Hermes slots"
+      "primaryRole": "DeepSeek Harness (dsh headless / dsh-tui, @deepseek-ai/dsh-agent-default-model -> deepseek-flash) autonomous <=2026-10-15 pre-wall batch sweeps & OMC/OMO Sisyphus/Aletheia/Hermes slots"
     },
     {
       "id": "kimi-k3.1-pro",
@@ -169,25 +169,25 @@
     "Sisyphus": {
       "role": "High-volume implementation loop (primary token-cost lever)",
       "premiumModel": "claude-sonnet-5-5",
-      "balancedModel": "deepseek-v4-pro",
+      "balancedModel": "deepseek-v4.1-flash",
       "forbidPrefixes": []
     },
     "Hephaestus": {
       "role": "Structured multi-file synthesis & refactoring (non-GPT only)",
       "premiumModel": "claude-sonnet-5-5",
-      "balancedModel": "kimi-k3.1-pro",
+      "balancedModel": "claude-sonnet-5-5",
       "forbidPrefixes": ["gpt-"]
     },
     "Aletheia": {
       "role": "Evidence & test verification pass",
       "premiumModel": "claude-sonnet-5-5",
-      "balancedModel": "deepseek-v4-pro",
+      "balancedModel": "deepseek-v4.1-flash",
       "forbidPrefixes": []
     },
     "Hermes": {
       "role": "Lightweight multi-agent coordinator",
       "premiumModel": "claude-sonnet-5-5",
-      "balancedModel": "deepseek-v4-flash",
+      "balancedModel": "deepseek-v4.1-flash",
       "forbidPrefixes": []
     }
   },
@@ -238,7 +238,7 @@
       "orchestrator": "oh-my-openagent (OMO) + pi + oh-my-pi (OMP)",
       "primaryModel": "claude-sonnet-5-5",
       "challengerRuntime": "dsh",
-      "challengerModel": "deepseek-v4-pro"
+      "challengerModel": "deepseek-v4.1-flash"
     },
     {
       "taskClass": "quota_resilient_gateway_and_eval_matrix",

@@ -13,7 +13,7 @@ Every layer (`L0–L13`), Trading Lane (`T1–T5`), and Harness Lane (`H0–H7`)
 | Typed Python DAGs & 1M Synthesis | `https://github.com/google-antigravity/antigravity-sdk-python` (`v1.5.10`) | `16` `run_workflow` Python DAGs + Native Swarm `workspace:share` |
 | Non-GPT Polyglot Graph Runtime | `https://github.com/code-yeongyu/oh-my-openagent` (`v5.1.75`) | `kimi-k3.1-pro` `Hephaestus` (`forbids_gpt_on_hephaestus=true`) |
 | Role-Selected Thinking Workers | `https://github.com/can1357/oh-my-pi` (`v18.22.0`) + `https://github.com/block/goose` (`v1.59.2`) | `@worker` explicit `--effort` workers & AAIF MCP recipes |
-| Open-Weights Quant Verifier | `https://github.com/native-agent-stack/dsh-sota-harness` (`v0.2.2-rc.2`) | `deepseek-v4-pro` 10-layer probes & `<= 2026-10-15` pre-wall batch evaluator |
+| Open-Weights Quant Verifier | `https://github.com/native-agent-stack/dsh-sota-harness` (`v0.2.2-rc.2`) | `deepseek-v4.1-flash` (`deepseek-flash`) 10-layer probes & `<= 2026-10-15` pre-wall batch evaluator |
 
 ## 2. 18 Immutable `40`-Hex Quantitative & Execution Upstream Shelf Pins (`DF1..DF9`)
 

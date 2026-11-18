@@ -692,7 +692,7 @@ CANONICAL_HARNESS_LANES: tuple[HarnessLaneSpec, ...] = (
         layer="L6",
         repos=("dsh-sota-harness", "dsh-plugin-landscape"),
         primary_framework="deepseek-harness",
-        lead_model_id="deepseek-v4-pro",
+        lead_model_id="deepseek-v4.1-flash",
         challenger_model_id="claude-sonnet-5-5",
     ),
     HarnessLaneSpec(

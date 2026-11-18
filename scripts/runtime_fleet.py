@@ -72,7 +72,7 @@ def validate_routing_matrix(*, config_only: bool = False) -> tuple[dict, list[st
         "claude-opus-5-5",
         "claude-sonnet-5-5",
         "claude-haiku-5-5",
-        "deepseek-v4-pro",
+        "deepseek-v4.1-flash",
         "kimi-k3.1-pro",
     ):
         if required_model not in models:
