@@ -5,6 +5,7 @@ Probes macOS AC/battery state, local Orca runtime (Apple M5 Max 18c/64GB), and p
 stationary Noesis Orca runtime (--environment 100.110.115.22, Threadripper 64c/128GB/RTX4090)
 to emit deterministic cross-session / cross-runtime placement decisions.
 """
+
 from __future__ import annotations
 
 import argparse

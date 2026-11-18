@@ -5,6 +5,7 @@ simulation -> pre-wall (<= 2026-10-15) CPCV/DSR/2x-impact backtest -> multi-mode
 adversarial falsification -> autonomous Alpaca/IBKR Paper execution -> Empirical-Bayes
 factor fine-tuning and SkillOpt lesson compounding.
 """
+
 from __future__ import annotations
 
 import datetime as dt
@@ -139,9 +140,7 @@ def calibrate_protective_trail_pct(
     if min_stop_pct <= 0.0 or Decimal(str(min_stop_pct)) > MAX_PROTECTIVE_STOP_DEC:
         raise ValueError(f"min_stop_pct must be in (0, {MAX_PROTECTIVE_STOP_PCT}], got {min_stop_pct}")
 
-    raw_dec = (
-        Decimal(str(prewall_median_bar_range_bps)) * Decimal(str(range_multiplier))
-    ) / Decimal("10000")
+    raw_dec = (Decimal(str(prewall_median_bar_range_bps)) * Decimal(str(range_multiplier))) / Decimal("10000")
     floored = raw_dec.quantize(Decimal("0.0001"), rounding=ROUND_FLOOR)
     min_dec = Decimal(str(min_stop_pct)).quantize(Decimal("0.0001"), rounding=ROUND_FLOOR)
     clamped = min(MAX_PROTECTIVE_STOP_DEC, max(min_dec, floored))
@@ -479,9 +478,7 @@ def validate_compounding_manifest(
     for cand in candidates:
         expected_t = hlz_t_hurdle(int(cand["nextTrialN"]))
         if abs(float(cand["requiredHlzTHurdle"]) - expected_t) > 1e-4:
-            errors.append(
-                f"Candidate {cand['strategyId']} hurdle {cand['requiredHlzTHurdle']} != {expected_t}"
-            )
+            errors.append(f"Candidate {cand['strategyId']} hurdle {cand['requiredHlzTHurdle']} != {expected_t}")
         cal_stop = calibrate_protective_trail_pct(
             prewall_median_bar_range_bps=float(cand["prewallMedianBarRangeBps"]),
             range_multiplier=float(cand["rangeMultiplier"]),

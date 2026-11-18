@@ -4,6 +4,7 @@ Every behavioral assertion below is transcribed from a file/line in
 ``docs/reports/UPSTREAM_EXECUTION_PARITY_SPEC.md`` and enforced against the read-only
 pinned clones under ``~/Documents/upstream/``.
 """
+
 from __future__ import annotations
 
 import math
@@ -220,9 +221,7 @@ def test_exit_gate_is_fail_closed_and_delegates_to_harness_gate() -> None:
     with pytest.raises(ValueError, match="exceeds 2.00%"):
         check_exit_gate(wide_stop)
 
-    extended = replace(
-        valid, session="overnight", has_broker_oto_stop=False, has_awake_limit_exit=True
-    )
+    extended = replace(valid, session="overnight", has_broker_oto_stop=False, has_awake_limit_exit=True)
     assert check_exit_gate(extended) is ContingencyType.OTO
     naked_overnight = replace(extended, has_awake_limit_exit=False)
     with pytest.raises(ValueError, match="requires awake extended-hours limit exit"):

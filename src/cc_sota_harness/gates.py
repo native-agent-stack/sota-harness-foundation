@@ -6,6 +6,7 @@ Enforces:
 - Paper Broker Pacing (<= 200 req/min Alpaca Paper with 15/min protective-exit reserve; <= 3,000 msg/min IBKR Paper)
 - Hard Live-Account Refusal (only PA* or DU* paper venues permitted)
 """
+
 from __future__ import annotations
 
 import datetime as dt
@@ -41,7 +42,9 @@ def check_study_wall(trade_date: dt.date, *, stage: str) -> None:
     if stage not in {"calibration", "forward"}:
         raise ValueError(f"unknown stage '{stage}'; expected 'calibration' or 'forward'")
     if stage == "calibration" and trade_date > STUDY_WALL:
-        raise ValueError(f"study-wall violation: {trade_date.isoformat()} > {STUDY_WALL.isoformat()} during calibration")
+        raise ValueError(
+            f"study-wall violation: {trade_date.isoformat()} > {STUDY_WALL.isoformat()} during calibration"
+        )
     if stage == "forward" and trade_date <= STUDY_WALL:
         raise ValueError(f"forward-record violation: {trade_date.isoformat()} <= {STUDY_WALL.isoformat()}")
 
@@ -80,14 +83,18 @@ def check_paper_order_intent(intent: OrderIntent) -> None:
         raise ValueError(f"unsupported side '{intent.side}'")
 
     if d_risk > MAX_PROTECTIVE_STOP_DEC:
-        raise ValueError(f"protective stop width {float(d_risk):.4%} exceeds {MAX_PROTECTIVE_STOP_PCT:.2%} ADR-0022 cap")
+        raise ValueError(
+            f"protective stop width {float(d_risk):.4%} exceeds {MAX_PROTECTIVE_STOP_PCT:.2%} ADR-0022 cap"
+        )
 
     if intent.session == "rth":
         if not intent.has_broker_oto_stop:
             raise ValueError("RTH entry requires atomic broker OTO/bracket stop")
     elif intent.session in {"premarket", "afterhours", "overnight"}:
         if not (intent.has_awake_limit_exit or (intent.venue_prefix == "DU" and intent.has_broker_oto_stop)):
-            raise ValueError(f"{intent.session} position requires awake extended-hours limit exit or IBKR outsideRth stop")
+            raise ValueError(
+                f"{intent.session} position requires awake extended-hours limit exit or IBKR outsideRth stop"
+            )
     else:
         raise ValueError(f"unknown session '{intent.session}'")
 

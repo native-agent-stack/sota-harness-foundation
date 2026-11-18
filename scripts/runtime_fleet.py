@@ -5,6 +5,7 @@ Validates config/multi-model-routing.json invariants (Artificial Analysis v5.0.1
 Coding Agent Index v2.1 leadership, OMC/OMO Hephaestus non-GPT constraint, one-model-per-session
 prompt-cache rule, paper-only firewall) and probes all installed multi-model CLI binaries.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -121,7 +122,9 @@ def validate_routing_matrix(*, config_only: bool = False) -> tuple[dict, list[st
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate CC Lead multi-model routing & runtime binaries.")
-    parser.add_argument("--config-only", action="store_true", help="Validate routing schema without probing host binaries")
+    parser.add_argument(
+        "--config-only", action="store_true", help="Validate routing schema without probing host binaries"
+    )
     parser.add_argument("--json", action="store_true", help="Emit JSON output")
     args = parser.parse_args()
 

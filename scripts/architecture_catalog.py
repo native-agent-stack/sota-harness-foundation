@@ -4,6 +4,7 @@
 Modeled on northstar's architecture-catalog generator: validates required metadata,
 required MADR sections, and the 45-day revisit threshold across all ADR-*.md files.
 """
+
 from __future__ import annotations
 
 import argparse

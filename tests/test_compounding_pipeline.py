@@ -1,4 +1,5 @@
 """Unit and Hypothesis property tests for the 5-stage strategy compounding pipeline."""
+
 from __future__ import annotations
 
 import datetime as dt

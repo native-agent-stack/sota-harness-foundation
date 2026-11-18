@@ -384,3 +384,28 @@ def test_adr_0035_createprocessw_chunked_b64_and_qmd_bm25_tokenizer() -> None:
     assert "ADR-0035" in kw
 
 
+def test_adr_0036_claude_1to1_fable_telemetry_and_tier_validator() -> None:
+    from cc_sota_harness.workstation_lane import (
+        compute_claude_fable_1to1_telemetry,
+        validate_claude_1to1_tier_config,
+    )
+
+    ok_tier, tier_errs = validate_claude_1to1_tier_config(
+        {
+            "OMC_MODEL_HIGH": "claude-fable-5-2",
+            "OMC_MODEL_MEDIUM": "claude-sonnet-5-5",
+            "OMC_MODEL_LOW": "claude-sonnet-5-5",
+        }
+    )
+    assert ok_tier is True and tier_errs == []
+    bad_ok, bad_errs = validate_claude_1to1_tier_config({"OMC_MODEL_LOW": "claude-haiku-5-5"})
+    assert bad_ok is False and len(bad_errs) == 3
+
+    skew = compute_claude_fable_1to1_telemetry({"claude-fable-5-2": 2, "claude-opus-5-5": 126, "claude-haiku-5-5": 285})
+    assert skew["within1To1Band"] is False
+    assert skew["haikuTurns"] == 285
+
+    bal = compute_claude_fable_1to1_telemetry({"claude-fable-5-2": 50, "claude-opus-5-5": 20, "claude-sonnet-5-5": 30})
+    assert bal["within1To1Band"] is True
+    assert bal["fableShare"] == 0.50
+    assert bal["haikuTurns"] == 0

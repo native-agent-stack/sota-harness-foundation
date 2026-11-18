@@ -548,7 +548,9 @@ def resolve_prewall_lake_root(
     wsl_p = wsl_lake if wsl_lake is not None else pathlib.Path("/mnt/z/sota-data/prewall-lake")
     win_p = win_lake if win_lake is not None else pathlib.Path("Z:/sota-data/prewall-lake")
     mac_p = h / "Documents" / "market-data"
-    ordered = (ext4_p, wsl_p, win_p, mac_p) if (wsl_lake is None and win_lake is None) else (wsl_p, win_p, ext4_p, mac_p)
+    ordered = (
+        (ext4_p, wsl_p, win_p, mac_p) if (wsl_lake is None and win_lake is None) else (wsl_p, win_p, ext4_p, mac_p)
+    )
     for cand in ordered:
         if cand.is_dir():
             return cand
@@ -603,8 +605,7 @@ CANONICAL_TRADING_LANES: tuple[TradingLaneSpec, ...] = (
         workload_kind=WorkloadKind.HEAVY_PREWALL_RESEARCH,
         single_writer_paper_only=False,
         endpoint_or_feed=(
-            "sota-ranking-datafeeds.v3.8 (DF1..DF9, <= 2026-10-15, "
-            "Z:/sota-data/prewall-lake sha256=a253421e8734...)"
+            "sota-ranking-datafeeds.v3.8 (DF1..DF9, <= 2026-10-15, Z:/sota-data/prewall-lake sha256=a253421e8734...)"
         ),
         stop_cap_pct=2.0,
     ),
@@ -921,13 +922,27 @@ def chunk_powershell_b64_payload(b64_code: str, *, max_chunk_chars: int = 3500) 
 def tokenize_qmd_bm25_query(repo: str, goal: str, *, max_terms: int = 3) -> str:
     """Extract non-stopword whole tokens for qmd BM25 search without mid-word truncation."""
     stop = {
-        "the", "and", "for", "with", "from", "into", "across", "verify", "confirm",
-        "audit", "check", "run", "read", "only", "ack", "are", "live", "reply", "via",
+        "the",
+        "and",
+        "for",
+        "with",
+        "from",
+        "into",
+        "across",
+        "verify",
+        "confirm",
+        "audit",
+        "check",
+        "run",
+        "read",
+        "only",
+        "ack",
+        "are",
+        "live",
+        "reply",
+        "via",
     }
-    words = [
-        w for w in re.findall(r"[A-Za-z0-9][A-Za-z0-9_-]{2,}", f"{repo} {goal}")
-        if w.lower() not in stop
-    ]
+    words = [w for w in re.findall(r"[A-Za-z0-9][A-Za-z0-9_-]{2,}", f"{repo} {goal}") if w.lower() not in stop]
     dedup: list[str] = []
     for w in words:
         if w.lower() not in {x.lower() for x in dedup}:
@@ -935,3 +950,42 @@ def tokenize_qmd_bm25_query(repo: str, goal: str, *, max_terms: int = 3) -> str:
     return " ".join(dedup[: max(1, max_terms)])
 
 
+def validate_claude_1to1_tier_config(env_map: dict[str, str]) -> tuple[bool, list[str]]:
+    """Verify OMC HIGH/MEDIUM/LOW tier env enforces ~1:1 claude-fable-5-2 vs sonnet/opus without haiku sprawl."""
+    errs: list[str] = []
+    if env_map.get("OMC_MODEL_HIGH") != "claude-fable-5-2":
+        errs.append("OMC_MODEL_HIGH must be 'claude-fable-5-2'")
+    if env_map.get("OMC_MODEL_MEDIUM") != "claude-sonnet-5-5":
+        errs.append("OMC_MODEL_MEDIUM must be 'claude-sonnet-5-5'")
+    if env_map.get("OMC_MODEL_LOW") != "claude-sonnet-5-5":
+        errs.append("OMC_MODEL_LOW must be 'claude-sonnet-5-5' (zero haiku sprawl)")
+    return len(errs) == 0, errs
+
+
+def compute_claude_fable_1to1_telemetry(
+    model_counts: dict[str, int],
+    *,
+    target_fable_share: float = 0.50,
+    band_half_width: float = 0.08,
+) -> dict[str, Any]:
+    """Compute Claude Code CLI fable-5-2 vs remaining model share against the ~1:1 (50% / 50%) target."""
+    clean = {str(k): int(v) for k, v in model_counts.items() if int(v) > 0}
+    fable_turns = sum(v for k, v in clean.items() if "fable-5-" in k or k == "fable")
+    haiku_turns = sum(v for k, v in clean.items() if "haiku" in k)
+    remaining_turns = sum(v for k, v in clean.items() if k != "fable" and "fable-5-" not in k)
+    total = fable_turns + remaining_turns
+    fable_share = round(fable_turns / total, 4) if total > 0 else target_fable_share
+    low_b = round(target_fable_share - band_half_width, 4)
+    high_b = round(target_fable_share + band_half_width, 4)
+    in_band = low_b <= fable_share <= high_b
+    return {
+        "schemaVersion": "sota-claude-1to1-telemetry.v1",
+        "totalTurns": total,
+        "fableTurns": fable_turns,
+        "remainingTurns": remaining_turns,
+        "haikuTurns": haiku_turns,
+        "fableShare": fable_share,
+        "remainingShare": round(1.0 - fable_share, 4) if total > 0 else round(1.0 - target_fable_share, 4),
+        "allowedBand": (low_b, high_b),
+        "within1To1Band": in_band,
+    }

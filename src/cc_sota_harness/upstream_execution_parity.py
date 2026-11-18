@@ -17,6 +17,7 @@ pinned nautilus clone. The exit gate here is therefore the harness-side ADR-0022
 (``gates.check_paper_order_intent``) mapped onto the pinned nautilus OTO contingency;
 see ``docs/reports/UPSTREAM_EXECUTION_PARITY_SPEC.md`` for the honest provenance note.
 """
+
 from __future__ import annotations
 
 import math
@@ -48,7 +49,9 @@ class SpreadAnalyzerParity:
         if capacity < 0:
             raise ValueError("capacity must be non-negative; a zero capacity is accepted")
         if capacity > sys.maxsize // 8:
-            raise MemoryError("memory allocation failed because the computed capacity exceeded the collection's maximum")
+            raise MemoryError(
+                "memory allocation failed because the computed capacity exceeded the collection's maximum"
+            )
         self.capacity = capacity
         self.instrument_id = instrument_id
         self.current = 0.0
@@ -350,9 +353,7 @@ def resting_trade_fill(
     return FillOutcome.NONE
 
 
-def ack_new_limit(
-    side: Side, order_tick: int, best_opposite_tick: int, time_in_force: str
-) -> tuple[FillOutcome, bool]:
+def ack_new_limit(side: Side, order_tick: int, best_opposite_tick: int, time_in_force: str) -> tuple[FillOutcome, bool]:
     """Admission rule for a new limit order; returns (outcome, posts_to_book).
 
     Mirrors nopartialfillexchange.rs:314-433. Marketable ``GTC``/``FOK``/``IOC``

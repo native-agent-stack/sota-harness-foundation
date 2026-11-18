@@ -10,6 +10,7 @@ and the 404-repo SOTA gap analysis:
 4. Deterministic `PaperPositionGuardianFSM` verified by Hypothesis `RuleBasedStateMachine` to
    guarantee zero naked shares across RTH/Extended/Overnight transitions and partial fills.
 """
+
 from __future__ import annotations
 
 import datetime as dt
@@ -35,6 +36,7 @@ def is_cta_utp_iso_print(conditions: Sequence[str] | None) -> bool:
     if not conditions:
         return False
     return CTA_UTP_ISO_CONDITION_CODE in conditions
+
 
 SessionKind = Literal[
     "REGULAR_RTH",
@@ -115,7 +117,9 @@ def resolve_245_session_window(
         next_day = d + dt.timedelta(days=1)
         if not cal.is_session(next_day.isoformat()):
             kind: SessionKind = "WEEKEND_CLOSED" if next_day.weekday() >= 5 else "HOLIDAY_CLOSED"
-            return SessionWindowInfo(session=kind, trade_date=next_day, is_entry_eligible=False, rth_flatten_time_et=None)
+            return SessionWindowInfo(
+                session=kind, trade_date=next_day, is_entry_eligible=False, rth_flatten_time_et=None
+            )
         if enable_dec6_235_sip and d >= DEC6_235_CUTOVER_DATE and minute_of_day >= 21 * 60:
             return SessionWindowInfo(
                 session="OVERNIGHT_NMS_235_AND_BOATS",
@@ -162,7 +166,9 @@ def resolve_245_session_window(
     flatten_dt = (close_ny - dt.timedelta(minutes=5)).timetz().replace(tzinfo=None)
 
     if minute_of_day < 9 * 60 + 30:
-        return SessionWindowInfo(session="PREMARKET", trade_date=d, is_entry_eligible=True, rth_flatten_time_et=flatten_dt)
+        return SessionWindowInfo(
+            session="PREMARKET", trade_date=d, is_entry_eligible=True, rth_flatten_time_et=flatten_dt
+        )
     if minute_of_day < close_minute:
         return SessionWindowInfo(
             session="REGULAR_RTH",
@@ -415,9 +421,7 @@ def check_one_writer_symbol_isolation(
         )
     pos_owner = open_position_lanes.get(sym)
     if pos_owner is not None and pos_owner != lane:
-        raise PermissionError(
-            f"Symbol {sym} position is owned by lane {pos_owner!r}; writer {lane!r} is hard-refused"
-        )
+        raise PermissionError(f"Symbol {sym} position is owned by lane {pos_owner!r}; writer {lane!r} is hard-refused")
     ord_owner = open_order_lanes.get(sym)
     if ord_owner is not None and ord_owner != lane:
         raise PermissionError(

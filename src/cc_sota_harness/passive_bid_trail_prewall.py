@@ -18,6 +18,7 @@ Primary Pinned Upstream & Academic References:
 - Glosten & Milgrom (1985, *JFE*) & Almgren & Chriss (2001, *Journal of Risk*): adverse selection & sqrt impact.
 - Kaminski & Lo (2014, *JPM*) & Zarattini, Aziz & Barbon (2024/2025): variance-compressing intraday stops on ORB.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -324,7 +325,7 @@ def replay_adverse_stop_first_exit(
             gain_lock_armed = gain_lock_armed or armed_now
 
     # Phase B: Strictly pessimistic ADVERSE_STOP_FIRST (check bar.low <= active_stop_px BEFORE bar.high ratchet)
-    half_spread_ratio = (EXIT_HALF_SPREAD_1X_BPS / 10_000.0)
+    half_spread_ratio = EXIT_HALF_SPREAD_1X_BPS / 10_000.0
     last_bar_close = fallback_close_px
     for bar in intraday_bars:
         if bar.ts_ns <= last_ns_checked:
@@ -473,7 +474,9 @@ def evaluate_h088_prewall_panel(
         [
             (pl.col("trail_gross_ret") - pl.col("univ_orb_ret")).alias("gross_excess_ret"),
             (pl.col("trail_gross_ret") - pl.col("univ_orb_ret") - pl.col("exit_cost_1x_ratio")).alias("net_1x_ret"),
-            (pl.col("trail_gross_ret") - pl.col("univ_orb_ret") - 2.0 * pl.col("exit_cost_1x_ratio")).alias("net_2x_ret"),
+            (pl.col("trail_gross_ret") - pl.col("univ_orb_ret") - 2.0 * pl.col("exit_cost_1x_ratio")).alias(
+                "net_2x_ret"
+            ),
             (
                 pl.col("hold_close_from_mid_ret")
                 + (pl.col("entry_spread_bps") / 20_000.0)
@@ -685,9 +688,9 @@ def _extract_single_orb_passive_candidate(
 
         q_before = q_clean.filter(pl.col("t_ns") <= ns_entry).tail(1)
         if q_before.height == 0:
-            q_before = q_clean.filter(
-                (pl.col("t_ns") > ns_entry) & (pl.col("t_ns") <= ns_entry + 5_000_000_000)
-            ).head(1)
+            q_before = q_clean.filter((pl.col("t_ns") > ns_entry) & (pl.col("t_ns") <= ns_entry + 5_000_000_000)).head(
+                1
+            )
         if q_before.height == 0:
             return None
 
@@ -737,9 +740,7 @@ def _extract_single_orb_passive_candidate(
             .alias("lr_sign")
         )
         ofi = float((signed["s"] * signed["lr_sign"]).sum()) / total_sh
-        iso_buy_sh = float(
-            signed.filter(pl.col("c").list.contains("F") & (pl.col("lr_sign") > 0.0))["s"].sum()
-        )
+        iso_buy_sh = float(signed.filter(pl.col("c").list.contains("F") & (pl.col("lr_sign") > 0.0))["s"].sum())
         iso_f_buy_share = iso_buy_sh / total_sh
 
         # BJZZ (2021) institutional non-retail off-exchange ('D') sub-penny [0.40, 0.60] or whole-cent dark share
@@ -897,7 +898,11 @@ def run_local_h088_prewall_study(
         )
         .with_columns(
             [
-                pl.col("raw_dv").shift(1).rolling_median(window_size=20, min_samples=20).over("symbol").alias("adv_20d_usd"),
+                pl.col("raw_dv")
+                .shift(1)
+                .rolling_median(window_size=20, min_samples=20)
+                .over("symbol")
+                .alias("adv_20d_usd"),
                 pl.col("ret_1d").shift(1).rolling_std(window_size=20, min_samples=20).over("symbol").alias("sigma_20d"),
                 (((pl.col("prev_split_close") / pl.col("prev_raw_close")) / pl.col("adj_factor") - 1.0).abs()).alias(
                     "split_drift"
@@ -994,9 +999,9 @@ def run_local_h088_prewall_study(
         strategy="backward",
         check_sortedness=False,
     ).with_columns(
-        (pl.col("filed_date").is_not_null() & ((pl.col("trade_date") - pl.col("filed_date")).dt.total_days() <= 90)).alias(
-            "recent_dilution_90d"
-        )
+        (
+            pl.col("filed_date").is_not_null() & ((pl.col("trade_date") - pl.col("filed_date")).dt.total_days() <= 90)
+        ).alias("recent_dilution_90d")
     )
     panel = panel.join_asof(
         short_pit,
@@ -1026,7 +1031,9 @@ def run_local_h088_prewall_study(
     for sym_v, dt_v in zip(filled_targets["symbol"].to_list(), filled_targets["trade_date"].to_list(), strict=False):
         syms_by_date.setdefault(dt_v, set()).add(str(sym_v))
 
-    def _load_day_bars(item: tuple[dt.date, set[str]]) -> tuple[dt.date, dict[str, list[tuple[int, float, float, float, float]]]]:
+    def _load_day_bars(
+        item: tuple[dt.date, set[str]],
+    ) -> tuple[dt.date, dict[str, list[tuple[int, float, float, float, float]]]]:
         d_val, sym_set = item
         day_dir = bars_root / d_val.isoformat()
         if not day_dir.is_dir():

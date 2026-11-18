@@ -1,4 +1,5 @@
 """Tests for Wave-2 Institutional Frontier Modules (Impact, 23/5 SIP+BOATS, PIT Master, Stateful FSM Fuzzing)."""
+
 from __future__ import annotations
 
 import datetime as dt

@@ -1,4 +1,5 @@
 """Unit, dimensional, and Hypothesis property tests for H088 Passive-Bid x Variance-Compressing Trail."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -145,7 +146,9 @@ def test_property_trail_bounds_and_cost_monotonicity(
         entry_px=entry_px,
         fill_ts_ns=1_000,
         trail_ratio=trail_ratio,
-        post_fill_quotes=(QuoteTickNs(ts_ns=2_000, bid_px=entry_px * 1.008, bid_lots=3.0, ask_px=entry_px * 1.009, ask_lots=3.0),),
+        post_fill_quotes=(
+            QuoteTickNs(ts_ns=2_000, bid_px=entry_px * 1.008, bid_lots=3.0, ask_px=entry_px * 1.009, ask_lots=3.0),
+        ),
         intraday_bars=(),
         fallback_close_px=entry_px * 1.007,
         exit_cost_1x_bps=cost_1x_bps,

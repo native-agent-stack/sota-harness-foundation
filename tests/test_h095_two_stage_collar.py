@@ -67,9 +67,7 @@ def test_property_h095_stage2_collar_never_chases_beyond_10bps(
     bp0 = ap0 * 0.9994
     ap15 = ap0 * (1.0 + drift_bps / 10_000.0)
     bp15 = ap15 * (1.0 - spread_bps / 10_000.0)
-    quotes = (
-        QuoteTickNs(ts_ns=ns0 + 14_500_000_000, bid_px=bp15, bid_lots=3.0, ask_px=ap15, ask_lots=ask_lots),
-    )
+    quotes = (QuoteTickNs(ts_ns=ns0 + 14_500_000_000, bid_px=bp15, bid_lots=3.0, ask_px=ap15, ask_lots=ask_lots),)
     res = simulate_h095_two_stage_hybrid_orb_fill(
         ns_entry=ns0,
         bp_entry=bp0,
