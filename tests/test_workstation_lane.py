@@ -134,7 +134,7 @@ def test_adr_0022_orca_coop_sync_plan_enforces_org_and_uuid() -> None:
     plan = build_orca_coop_sync_plan(converged_sha="e5eb9ba000000000")
     assert "--comment" in plan["set_comment"]
     assert "e5eb9ba000" in plan["set_comment"][-2]
-    assert "--reference" in plan["add_reference"]
+    assert "--url" in plan["add_reference"]
 
     with pytest.raises(ValueError, match="native-agent-stack"):
         build_orca_coop_sync_plan(reference_url="https://example.com/outside")

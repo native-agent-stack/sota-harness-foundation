@@ -374,7 +374,7 @@ def build_orca_coop_sync_plan(
             remote_env,
             "--worktree",
             wt_selector,
-            "--reference",
+            "--url",
             reference_url,
             "--json",
         ],
