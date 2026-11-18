@@ -859,3 +859,48 @@ def resolve_orca_lane_topology(
         "tradingLanes": trading_placements,
         "harnessLanes": harness_placements,
     }
+
+
+def normalize_coop_recipient(recipient: str, *, direction: str = "inbound_to_mac") -> str:
+    """Normalize cross-workstation peer-bus recipients so AGY, CC-Lead, and Lanes receive messages."""
+    rcpt = (recipient or "").strip()
+    if direction == "inbound_to_mac":
+        if not rcpt or rcpt in {"mac-m5-agy", "antigravity"}:
+            return "agy"
+        return rcpt
+    if not rcpt:
+        return "*"
+    return rcpt
+
+
+def validate_omc_stop_callback_config(omc_cfg: dict[str, Any]) -> tuple[bool, list[str]]:
+    """Verify OMC v2 JSON file stop-hook callback into sota-bus while keeping claudeMdEnabled=False."""
+    errs: list[str] = []
+    if omc_cfg.get("claudeMdEnabled") is not False:
+        errs.append("claudeMdEnabled must remain False to protect lean global CLAUDE.md")
+    cb = (omc_cfg.get("stopHookCallbacks") or {}).get("file") or {}
+    if cb.get("enabled") is not True:
+        errs.append("stopHookCallbacks.file.enabled must be True")
+    if cb.get("format") != "json":
+        errs.append("stopHookCallbacks.file.format must be 'json'")
+    cb_path = str(cb.get("path") or "")
+    if "omc_stop_callbacks" not in cb_path or "{session_id}" not in cb_path:
+        errs.append("stopHookCallbacks.file.path must write per-session JSON into omc_stop_callbacks/")
+    return len(errs) == 0, errs
+
+
+def build_memory_delta_sync_plan(*, since_hours: float = 2.0, qmd_indexed_docs: int = 567) -> dict[str, Any]:
+    """Return bounded 3-surface E2EE memory delta sync contract (Mac M5 Max <-> Noesis Win32 <-> Noesis-Carbon WSL2)."""
+    if since_hours <= 0.0 or since_hours > 168.0:
+        raise ValueError(f"since_hours must be in (0, 168], got {since_hours}")
+    if qmd_indexed_docs < 500:
+        raise ValueError(f"Expected >= 500 qmd indexed wiki+ADR docs, got {qmd_indexed_docs}")
+    return {
+        "schemaVersion": "sota-3surface-memory-sync.v1",
+        "sinceHours": round(float(since_hours), 2),
+        "tablesSynced": ("lessons", "handovers", "hypotheses"),
+        "surfaces": ("portable_mac_lead", "stationary_noesis_win32", "stationary_noesis_carbon_wsl2"),
+        "conptyTempFileRelay": True,
+        "qmdIndexedDocs": qmd_indexed_docs,
+    }
+

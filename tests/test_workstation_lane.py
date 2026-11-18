@@ -328,3 +328,37 @@ def test_property_h090_adr0022_catastrophe_hold_survives_intraday_noise(
             exit_cost_1x_bps=5.0,
             catastrophe_stop_ratio=0.025,
         )
+
+
+def test_adr_0034_coop_recipient_omc_callback_and_3surface_memory_sync() -> None:
+    from cc_sota_harness.workstation_lane import (
+        build_memory_delta_sync_plan,
+        normalize_coop_recipient,
+        validate_omc_stop_callback_config,
+    )
+
+    assert normalize_coop_recipient("mac-m5-agy", direction="inbound_to_mac") == "agy"
+    assert normalize_coop_recipient("cc-lead", direction="inbound_to_mac") == "cc-lead"
+    assert normalize_coop_recipient("", direction="outbound_to_noesis") == "*"
+
+    ok, errs = validate_omc_stop_callback_config(
+        {
+            "claudeMdEnabled": False,
+            "stopHookCallbacks": {
+                "file": {
+                    "enabled": True,
+                    "path": "~/.agents/bus/omc_stop_callbacks/{session_id}-{date}-{time}.json",
+                    "format": "json",
+                }
+            },
+        }
+    )
+    assert ok is True and errs == []
+    bad_ok, bad_errs = validate_omc_stop_callback_config({"claudeMdEnabled": True})
+    assert bad_ok is False and len(bad_errs) >= 2
+
+    plan = build_memory_delta_sync_plan(since_hours=1.5, qmd_indexed_docs=567)
+    assert plan["conptyTempFileRelay"] is True
+    assert len(plan["surfaces"]) == 3
+    assert plan["qmdIndexedDocs"] >= 567
+
