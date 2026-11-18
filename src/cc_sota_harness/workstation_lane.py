@@ -989,3 +989,15 @@ def compute_claude_fable_1to1_telemetry(
         "allowedBand": (low_b, high_b),
         "within1To1Band": in_band,
     }
+
+
+def validate_mcp_jsonrpc_notification_frame(frame: dict[str, Any]) -> bool:
+    """Return True when a JSON-RPC 2.0 frame is a notification (`id is None` or `notifications/*`) requiring 0 reply."""
+    method = str(frame.get("method") or "")
+    has_id = "id" in frame and frame.get("id") is not None
+    return (not has_id) or method.startswith("notifications/")
+
+
+def validate_bitemporal_pit_ordering(ts_event_ns: int, ts_recv_ns: int, decision_ns: int) -> bool:
+    """Verify strict bitemporal point-in-time causal monotonicity (`ts_event_ns <= ts_recv_ns <= decision_ns`)."""
+    return int(ts_event_ns) <= int(ts_recv_ns) <= int(decision_ns)

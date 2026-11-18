@@ -84,7 +84,9 @@ from cc_sota_harness.workstation_lane import (
     resolve_orca_lane_topology,
     resolve_prewall_lake_root,
     resolve_workstation_placement,
+    validate_bitemporal_pit_ordering,
     validate_dual_workstation_manifest,
+    validate_mcp_jsonrpc_notification_frame,
 )
 
 __all__ = [
@@ -156,8 +158,10 @@ __all__ = [
     "select_freshest_venue_quote",
     "select_listing_exchange_auction_print",
     "simulate_passive_bid_orb_fill",
+    "validate_bitemporal_pit_ordering",
     "validate_broker_target",
     "validate_compounding_manifest",
     "validate_dual_workstation_manifest",
     "validate_legacy_harvest_manifest",
+    "validate_mcp_jsonrpc_notification_frame",
 ]

@@ -409,3 +409,13 @@ def test_adr_0036_claude_1to1_fable_telemetry_and_tier_validator() -> None:
     assert bal["within1To1Band"] is True
     assert bal["fableShare"] == 0.50
     assert bal["haikuTurns"] == 0
+
+
+def test_adr_0038_mcp_jsonrpc_and_bitemporal_pit() -> None:
+    from cc_sota_harness import validate_bitemporal_pit_ordering, validate_mcp_jsonrpc_notification_frame
+
+    assert validate_mcp_jsonrpc_notification_frame({"jsonrpc": "2.0", "method": "notifications/initialized"}) is True
+    assert validate_mcp_jsonrpc_notification_frame({"jsonrpc": "2.0", "id": None, "method": "ping"}) is True
+    assert validate_mcp_jsonrpc_notification_frame({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}) is False
+    assert validate_bitemporal_pit_ordering(100, 150, 200) is True
+    assert validate_bitemporal_pit_ordering(200, 150, 250) is False
