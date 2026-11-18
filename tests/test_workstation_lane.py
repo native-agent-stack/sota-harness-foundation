@@ -121,6 +121,16 @@ def test_adr_0021_wsl_shared_vm_and_gateway_guards() -> None:
     with pytest.raises(PermissionError, match="sextant"):
         enforce_workstation_wsl_and_gateway_guard("wsl.exe --unregister sextant")
 
+    # Explicit Stage B owner cutover authorization permits quiesced WSL cutover while keeping gateway/OAuth guards active
+    enforce_workstation_wsl_and_gateway_guard("wsl --shutdown", stage_b_cutover_authorized=True)
+    enforce_workstation_wsl_and_gateway_guard("wsl.exe --unregister sextant", stage_b_cutover_authorized=True)
+    with pytest.raises(PermissionError, match="Tailscale Serve"):
+        enforce_workstation_wsl_and_gateway_guard(
+            "wsl --shutdown",
+            tailscale_serve_gateway_unauthenticated=True,
+            stage_b_cutover_authorized=True,
+        )
+
     with pytest.raises(PermissionError, match="Tailscale Serve"):
         enforce_workstation_wsl_and_gateway_guard(tailscale_serve_gateway_unauthenticated=True)
 

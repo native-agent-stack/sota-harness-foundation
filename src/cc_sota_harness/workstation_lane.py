@@ -316,12 +316,13 @@ def enforce_workstation_wsl_and_gateway_guard(
     env: dict[str, str] | None = None,
     *,
     tailscale_serve_gateway_unauthenticated: bool = False,
+    stage_b_cutover_authorized: bool = False,
 ) -> None:
-    """Enforce ADR-0021 shared-VM WSL2 isolation, Tailscale gateway auth, and OAuth/gateway separation."""
-    if _FORBIDDEN_WSL_SHARED_VM_RE.search(command):
+    """Enforce ADR-0021 Stage A/B WSL2 cutover guard, Tailscale gateway auth, and OAuth/gateway separation."""
+    if not stage_b_cutover_authorized and _FORBIDDEN_WSL_SHARED_VM_RE.search(command):
         raise PermissionError(
-            "ADR-0021 shared-VM WSL2 guard hard-refused command: never run 'wsl --shutdown' or "
-            "terminate/unregister co-resident 'sextant' on Noesis."
+            "ADR-0021 Stage A shared-VM WSL2 guard hard-refused command: never run 'wsl --shutdown' or "
+            "terminate/unregister co-resident 'sextant' on Noesis without explicit Stage B owner authorization."
         )
     if tailscale_serve_gateway_unauthenticated:
         raise PermissionError(
