@@ -17,9 +17,10 @@ On `2026-11-17`, the stationary workstation (`noesis`, `100.110.115.22`, AMD Thr
 
 We extend `src/cc_sota_harness/workstation_lane.py` (`enforce_workstation_wsl_and_gateway_guard`) and converge the `native-agent-stack` successor ecosystem:
 
-1. **Shared-VM WSL2 & Co-Resident Distro Guard (`enforce_workstation_wsl_and_gateway_guard`):**
-   - Hard-refuses (`PermissionError`) any command invoking `wsl --shutdown`, `wsl --terminate sextant`, `wsl --unregister sextant`, or destructive mutations targeting `sextant` or `D:/`.
-   - Keeps all `18` active `native-agent-stack` repositories provisioned and FF-synced on `noesis` Windows Orca (`C:/sota-workstation/*`) with live-shimmed multi-model CLIs (`claude`, `codex`, `omc`, `omx`, `oh-my-openagent`, `gemini`, `mise`, `uv`, `rg`, `gitleaks`, `ast-grep`), ready to mount or clone cleanly into a fresh post-reset WSL2/CUDA (`linux-x86_64` + `/usr/lib/wsl/lib/nvidia-smi`) workspace without legacy daemon drift.
+1. **Two-Stage Shared-VM WSL2 Guard (`enforce_workstation_wsl_and_gateway_guard`):**
+   - **Stage A (Default `stage_b_cutover_authorized=False`):** Hard-refuses (`PermissionError`) any command invoking `wsl --shutdown`, `wsl --terminate sextant`, `wsl --unregister sextant`, or destructive mutations targeting `sextant` or `D:/` during online preparation.
+   - **Stage B (Owner-Authorized Cutover `stage_b_cutover_authorized=True`, authorized `2026-11-18T04:06:55Z`):** Permits quiesced whole-volume/WSL cutover operations under `meridian` `ADR-0055` & `ADR-0057` once off-volume recovery digests (`2e09cf904a03...`, `c11a2f1985b3...`), single-writer handover to `portable_mac_lead`, and clean `Noesis-Carbon` (`Ubuntu 26.04.1`) staging are verified, while keeping gateway and OAuth firewalls unconditionally enforced.
+   - Keeps all `18` active `native-agent-stack` repositories provisioned and FF-synced on `noesis` Windows Orca (`C:/sota-workstation/*`) with live-shimmed multi-model CLIs (`claude`, `codex`, `omc`, `omx`, `oh-my-openagent`, `gemini`, `mise`, `uv`, `rg`, `gitleaks`, `ast-grep`), ready to mount or clone cleanly into `Noesis-Carbon` (`linux-x86_64` + `/usr/lib/wsl/lib/nvidia-smi`) without legacy daemon drift.
 2. **Loopback Model Gateway & Subscription OAuth Firewall (`ADR-0053`):**
    - Hard-refuses (`PermissionError`) proxying an unauthenticated local model gateway over Tailscale Serve (`tailscale_serve_gateway_unauthenticated=True`) and hard-refuses pairing `ANTHROPIC_BASE_URL` with `CLAUDE_CODE_OAUTH_TOKEN`.
 3. **Full Ecosystem Handoff Convergence (`native-agent-stack` `v3.2.0`):**
