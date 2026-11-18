@@ -14,13 +14,16 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 ROUTING_CONFIG = REPO_ROOT / "config" / "multi-model-routing.json"
 
 EXTRA_SEARCH_DIRS = [
     pathlib.Path.home() / ".local" / "share" / "mise" / "shims",
+    pathlib.Path(os.environ.get("LOCALAPPDATA") or (pathlib.Path.home() / "AppData" / "Local")) / "mise" / "shims",
     pathlib.Path.home() / ".local" / "bin",
+    pathlib.Path.home() / ".agents" / "bin",
 ]
 
 
@@ -30,14 +33,17 @@ def resolve_binary(bin_name: str) -> str | None:
     found = shutil.which(bin_name, path=augmented_path)
     if found:
         return found
-    probe = subprocess.run(
-        ["mise", "which", bin_name],
-        cwd=str(REPO_ROOT),
-        text=True,
-        capture_output=True,
-        timeout=8,
-        check=False,
-    )
+    try:
+        probe = subprocess.run(
+            ["mise", "which", bin_name],
+            cwd=str(REPO_ROOT),
+            text=True,
+            capture_output=True,
+            timeout=8,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
     if probe.returncode == 0 and probe.stdout.strip():
         return probe.stdout.strip()
     return None
@@ -73,10 +79,26 @@ def validate_routing_matrix(*, config_only: bool = False) -> tuple[dict, list[st
         "claude-sonnet-5-5",
         "claude-haiku-5-5",
         "deepseek-v4.1-flash",
-        "kimi-k3.1-pro",
+        "gemini-4-hydrogen-xhigh",
     ):
         if required_model not in models:
             errors.append(f"Missing frontier model in catalog: {required_model}")
+
+    forbidden_substrings = (
+        "kimi",
+        "moonshot",
+        "deepseek-v4-pro",
+        "deepseek-v4-flash",
+        "gemini-3.8-flash",
+        "gpt-6.1-sol",
+        "gpt-6-astra",
+        "claude-fable-5-1",
+    )
+    for m_id, m_meta in models.items():
+        hay = f"{m_id} {m_meta.get('alias', '')} {m_meta.get('vendor', '')}".lower()
+        for bad in forbidden_substrings:
+            if bad in hay:
+                errors.append(f"Forbidden stale/retired model in frontierModels: {m_id} ({bad})")
 
     agent_matrix = cfg.get("omcOmoAgentMatrix", {})
     heph = agent_matrix.get("Hephaestus", {})
@@ -94,17 +116,19 @@ def validate_routing_matrix(*, config_only: bool = False) -> tuple[dict, list[st
     resolved_runtimes: list[dict[str, str | None]] = []
     for rt in cfg.get("installedRuntimes", []):
         bin_name = rt["binary"]
-        resolved = None if config_only else resolve_binary(bin_name)
+        platforms = rt.get("platforms")
+        applicable = not platforms or sys.platform in platforms
+        resolved = None if (config_only or not applicable) else resolve_binary(bin_name)
         resolved_runtimes.append(
             {
                 "name": rt["name"],
                 "binary": bin_name,
                 "orcaNativeAgent": rt.get("orcaNativeAgent"),
                 "category": rt.get("category"),
-                "resolvedPath": resolved,
+                "resolvedPath": resolved if applicable else f"not_applicable_on_{sys.platform}",
             }
         )
-        if not config_only and resolved is None:
+        if not config_only and applicable and resolved is None:
             errors.append(f"Missing multi-model runtime binary: {bin_name} ({rt['name']})")
 
     summary = {

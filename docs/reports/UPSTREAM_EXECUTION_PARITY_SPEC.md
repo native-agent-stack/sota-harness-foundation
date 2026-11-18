@@ -1,6 +1,6 @@
 # UPSTREAM_EXECUTION_PARITY_SPEC — SOTA Move #3
 
-- **Date:** 2026-11-17 · **Owner:** `omo-opencode-exec` (OpenCode 2.3.0 / OMO, `kimi-k3.1-pro` tier)
+- **Date:** 2026-11-17 · **Owner:** `omo-opencode-exec` (OpenCode 2.3.0 / OMO, `claude-sonnet-5-5` / `deepseek-v4.1-flash` tier)
 - **Mandate:** ADR-0015 Move #3 (line 23-24); Upstream-First Charter `CLAUDE.md` rule 1.
 - **Status:** E3 — all rules below transcribed from pinned source at verified commit, mirrored by an executable Python reference, and unit-tested.
 - **Upstream boundary:** `~/Documents/upstream/` was read only. No file there was created, modified, or deleted.

@@ -259,7 +259,7 @@ def test_adr_0029_orca_lane_topology_rth_broker_shield_and_3surface_lake(tmp_pat
     topo = resolve_orca_lane_topology(rth_docked)
     assert topo["reposPartitionedTotal"] == 18
     assert topo["frameworksTotal"] == len(CANONICAL_ORCHESTRATION_FRAMEWORKS) == 8
-    assert topo["distinctVendorsTotal"] >= 7
+    assert topo["distinctVendorsTotal"] >= 6
     assert len(CANONICAL_TRADING_LANES) == 5
     assert len(CANONICAL_HARNESS_LANES) == 8
     assert topo["tradingLanes"]["T1_MERIDIAN_NAUTILUS_QUEUE_SIM"]["targetHost"] == "stationary_noesis_heavy"

@@ -11,7 +11,7 @@ Every layer (`L0–L13`), Trading Lane (`T1–T5`), and Harness Lane (`H0–H7`)
 | Cross-Family Adversarial Critic | `https://github.com/Yeachan-Heo/oh-my-codex` (`v0.22.10`) + `https://github.com/max-sixty/worktrunk` | `gpt-6.2-astra` `omx exec` / `omx mission` in isolated git worktrees |
 | 8-Slot Lifecycle & Peer Spine | `https://github.com/ComposioHQ/agent-orchestrator` + `https://github.com/aannoo/hcom` + `https://github.com/steveyegge/beads` | 8-slot cross-vendor `AO` convergence, SQLite WAL `peer_bus.db`, `hcom` PTY push & `bd` DAG tracking |
 | Typed Python DAGs & 1M Synthesis | `https://github.com/google-antigravity/antigravity-sdk-python` (`v1.5.10`) | `16` `run_workflow` Python DAGs + Native Swarm `workspace:share` |
-| Non-GPT Polyglot Graph Runtime | `https://github.com/code-yeongyu/oh-my-openagent` (`v5.1.75`) | `kimi-k3.1-pro` `Hephaestus` (`forbids_gpt_on_hephaestus=true`) |
+| Non-GPT Polyglot Graph Runtime | `https://github.com/code-yeongyu/oh-my-openagent` (`v5.1.75`) | `claude-sonnet-5-5` / `deepseek-v4.1-flash` `Hephaestus` (`forbids_gpt_on_hephaestus=true`) |
 | Role-Selected Thinking Workers | `https://github.com/can1357/oh-my-pi` (`v18.22.0`) + `https://github.com/block/goose` (`v1.59.2`) | `@worker` explicit `--effort` workers & AAIF MCP recipes |
 | Open-Weights Quant Verifier | `https://github.com/native-agent-stack/dsh-sota-harness` (`v0.2.2-rc.2`) | `deepseek-v4.1-flash` (`deepseek-flash`) 10-layer probes & `<= 2026-10-15` pre-wall batch evaluator |
 
