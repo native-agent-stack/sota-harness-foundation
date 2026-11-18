@@ -334,3 +334,48 @@ def enforce_workstation_wsl_and_gateway_guard(
             raise PermissionError(
                 "ADR-0021 / ADR-0053 OAuth guard hard-refused pairing ANTHROPIC_BASE_URL with CLAUDE_CODE_OAUTH_TOKEN."
             )
+
+
+def build_orca_coop_sync_plan(
+    *,
+    remote_env: str = "100.110.115.22",
+    repo_name: str = "native-agent-stack",
+    remote_repo_id: str = "a1875711-afb6-41c3-9ae2-a9e6e46af082",
+    remote_path: str = "C:/sota-workstation/native-agent-stack",
+    converged_sha: str = "",
+    reference_url: str = "https://github.com/native-agent-stack/native-agent-stack",
+) -> dict[str, list[str]]:
+    """Build deterministic SOTA Orca cross-machine co-op commands (ADR-0022)."""
+    if not _UUID_RE.match(remote_repo_id):
+        raise ValueError(f"Invalid remote_repo_id UUID: {remote_repo_id!r}")
+    if not reference_url.startswith("https://github.com/native-agent-stack"):
+        raise ValueError(f"Co-op reference URL must target native-agent-stack org: {reference_url!r}")
+    wt_selector = f"id:{remote_repo_id}::{remote_path}"
+    short_sha = converged_sha[:10] if converged_sha else "HEAD"
+    comment = f"[SOTA CO-OP READY] {repo_name}@{short_sha} synced Mac M5 Max <-> Noesis 64c/RTX4090"
+    return {
+        "set_comment": [
+            "orca",
+            "worktree",
+            "set",
+            "--environment",
+            remote_env,
+            "--worktree",
+            wt_selector,
+            "--comment",
+            comment,
+            "--json",
+        ],
+        "add_reference": [
+            "orca",
+            "reference",
+            "add",
+            "--environment",
+            remote_env,
+            "--worktree",
+            wt_selector,
+            "--reference",
+            reference_url,
+            "--json",
+        ],
+    }

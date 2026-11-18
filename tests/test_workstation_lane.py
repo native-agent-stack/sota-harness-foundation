@@ -13,6 +13,7 @@ from cc_sota_harness.workstation_lane import (
     HostTelemetry,
     WorkloadKind,
     WorkstationTopologyMode,
+    build_orca_coop_sync_plan,
     classify_topology_mode,
     enforce_workstation_wsl_and_gateway_guard,
     portable_thread_budget,
@@ -127,3 +128,13 @@ def test_adr_0021_wsl_shared_vm_and_gateway_guards() -> None:
         enforce_workstation_wsl_and_gateway_guard(
             env={"ANTHROPIC_BASE_URL": "http://127.0.0.1:20128", "CLAUDE_CODE_OAUTH_TOKEN": "oauth-redacted"}
         )
+
+
+def test_adr_0022_orca_coop_sync_plan_enforces_org_and_uuid() -> None:
+    plan = build_orca_coop_sync_plan(converged_sha="e5eb9ba000000000")
+    assert "--comment" in plan["set_comment"]
+    assert "e5eb9ba000" in plan["set_comment"][-2]
+    assert "--reference" in plan["add_reference"]
+
+    with pytest.raises(ValueError, match="native-agent-stack"):
+        build_orca_coop_sync_plan(reference_url="https://example.com/outside")
