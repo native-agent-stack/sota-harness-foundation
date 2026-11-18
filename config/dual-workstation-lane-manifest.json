@@ -1,7 +1,7 @@
 {
-  "manifestVersion": "1.0.0",
-  "verifiedAt": "2026-11-17",
-  "adrAuthority": "docs/adr/ADR-0020-dual-machine-portable-and-stationary-orca-workstation-lane.md",
+  "manifestVersion": "1.1.0",
+  "verifiedAt": "2026-11-18",
+  "adrAuthority": "docs/adr/ADR-0028-stageb-noesis-z-reset-carbon-ext4-and-0930-live-protection-convergence.md",
   "crossMachineProtocol": {
     "supervisionPlane": "Orca Cross-Machine Runtime Pairing (ws://100.110.115.22:6770, worktree.lineage.crossMachine + terminal.paired-parking.v1)",
     "meshNetwork": "Tailscale WireGuard Mesh (100.93.211.101 <-> 100.110.115.22) with sub-5ms LAN direct path",
@@ -36,7 +36,10 @@
     "stationary_noesis_heavy": {
       "machineId": "stationary-noesis-threadripper-4090",
       "formFactor": "stationary_workstation",
-      "platform": "win32+wsl2(meridian,sextant)",
+      "platform": "win32+wsl2(Noesis-Carbon,sextant)",
+      "defaultWslGuest": "Noesis-Carbon (Ubuntu 26.04.1 LTS ext4)",
+      "stageBResetSealed": true,
+      "zNvmeFreeTb": 2.85,
       "cpu": "AMD Threadripper (64 logical cores)",
       "cpuCores": 64,
       "memoryGb": 128,
