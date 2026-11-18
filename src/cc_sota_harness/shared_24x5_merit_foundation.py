@@ -24,8 +24,16 @@ from typing import Any
 
 from cc_sota_harness.gates import MAX_PROTECTIVE_STOP_PCT, STUDY_WALL
 
-SHARED_FOUNDATION_SCHEMA_VERSION = "sota-shared-24x5-merit-foundation.v1"
+SHARED_FOUNDATION_SCHEMA_VERSION = "sota-shared-24x5-merit-foundation.v2"
 DUAL_MACHINE_MERIT_GOAL_ID = "G_SOTA_DUAL_MACHINE_MERIT_TO_LOSSLESS_LIVE_24X5"
+PRIMARY_SOVEREIGN_WORKSTATION_HOST = "stationary_noesis_win32"
+PRIMARY_SOVEREIGN_WORKSTATION_IP = "100.110.115.22"
+PORTABLE_COCKPIT_FAILOVER_HOST = "portable_mac_m5_max"
+PORTABLE_COCKPIT_FAILOVER_IP = "100.93.211.101"
+SOVEREIGN_HOST_ROLES: frozenset[str] = frozenset(
+    {"stationary_noesis_win32", "stationary_noesis", "noesis", "stationary_noesis_carbon_wsl2"}
+)
+PORTABLE_FAILOVER_ROLES: frozenset[str] = frozenset({"portable_mac_m5_max", "apple_m5_max", "mac"})
 MAX_STOP_ADR0022_PERCENT_POINTS = round(MAX_PROTECTIVE_STOP_PCT * 100.0, 4)  # 0.02 decimal -> 2.00%
 
 UPSTREAM_PLATFORM_BINDINGS: dict[str, dict[str, Any]] = {
@@ -68,9 +76,23 @@ UPSTREAM_PLATFORM_BINDINGS: dict[str, dict[str, Any]] = {
     },
 }
 
+SOVEREIGN_ENGINE_PORTS: dict[str, int] = {
+    "P1_Account_C_Lossless_Mirror": 8799,
+    "P2_Account_B_Balanced_Ranker": 8787,
+    "P3_Account_A_Aggressive_Crucible": 8797,
+    "P4_Account_D_IBKR_Institutional": 4002,
+    "L5_Stage5_Lossless_Live": 8798,
+}
+
 SHARED_24X5_LOSSLESS_FOUNDATION: dict[str, Any] = {
     "schema_version": SHARED_FOUNDATION_SCHEMA_VERSION,
     "goal_id": DUAL_MACHINE_MERIT_GOAL_ID,
+    "primary_sovereign_host": PRIMARY_SOVEREIGN_WORKSTATION_HOST,
+    "primary_sovereign_tailscale_ip": PRIMARY_SOVEREIGN_WORKSTATION_IP,
+    "portable_cockpit_and_failover_host": PORTABLE_COCKPIT_FAILOVER_HOST,
+    "portable_cockpit_tailscale_ip": PORTABLE_COCKPIT_FAILOVER_IP,
+    "single_active_broker_host_only": True,
+    "workstation_hosts_main_framework_and_trading_engine": True,
     "paper_and_live_share_same_foundation": True,
     "always_on_24x5": True,
     "dec6_2026_23x5_sip_ready": True,
@@ -82,14 +104,32 @@ SHARED_24X5_LOSSLESS_FOUNDATION: dict[str, Any] = {
     "daily_drawdown_breaker_pct": -1.50,
     "zero_pii_and_usd_telemetry": True,
     "study_wall_iso": STUDY_WALL.isoformat(),
-    "active_mac_ports": {
-        "P1_Account_C_Lossless_Mirror": 8799,
-        "P2_Account_B_Balanced_Ranker": 8787,
-        "P3_Account_A_Aggressive_Crucible": 8797,
-        "P4_Account_D_IBKR_Institutional": 4002,
-        "L5_Stage5_Lossless_Live": 8798,
-    },
+    "sovereign_engine_ports": dict(SOVEREIGN_ENGINE_PORTS),
+    "active_mac_ports": dict(SOVEREIGN_ENGINE_PORTS),  # Backward-compatible failover port map alias
 }
+
+
+def validate_sovereign_host_authority(
+    *,
+    active_broker_host: str,
+    mac_read_only_radar: bool,
+    noesis_read_only_radar: bool,
+) -> tuple[bool, list[str]]:
+    """Enforce `single_active_broker_host_only=True`: Stationary Noesis primary OR Portable Mac failover, NEVER both."""
+    errors: list[str] = []
+    if active_broker_host in SOVEREIGN_HOST_ROLES:
+        if noesis_read_only_radar:
+            errors.append("PRIMARY_NOESIS_CANNOT_BE_READ_ONLY_WHILE_ACTIVE_BROKER_HOST")
+        if not mac_read_only_radar:
+            errors.append("PORTABLE_MAC_MUST_BE_READ_ONLY_COCKPIT_WHILE_NOESIS_IS_PRIMARY")
+    elif active_broker_host in PORTABLE_FAILOVER_ROLES:
+        if mac_read_only_radar:
+            errors.append("FAILOVER_MAC_CANNOT_BE_READ_ONLY_WHILE_HOLDING_ACTIVE_LEASE")
+        if not noesis_read_only_radar:
+            errors.append("NOESIS_MUST_BE_READ_ONLY_WHILE_PORTABLE_MAC_HOLDS_FAILOVER_LEASE")
+    else:
+        errors.append(f"UNKNOWN_ACTIVE_BROKER_HOST:{active_broker_host}")
+    return (len(errors) == 0), errors
 
 
 @dataclass(frozen=True)
@@ -139,8 +179,10 @@ def build_shared_foundation_manifest() -> dict[str, Any]:
     """Build deterministic SHA-256 manifest of the Shared 24/5 Lossless Foundation & Upstream Platform Bindings."""
     body: dict[str, Any] = {
         "schema_version": SHARED_FOUNDATION_SCHEMA_VERSION,
-        "adr": "ADR-0040",
+        "adr": "ADR-0041",
         "goal_id": DUAL_MACHINE_MERIT_GOAL_ID,
+        "primary_sovereign_host": PRIMARY_SOVEREIGN_WORKSTATION_HOST,
+        "portable_cockpit_host": PORTABLE_COCKPIT_FAILOVER_HOST,
         "shared_24x5_foundation": SHARED_24X5_LOSSLESS_FOUNDATION,
         "upstream_platform_bindings": UPSTREAM_PLATFORM_BINDINGS,
         "upstream_domains_count": len(UPSTREAM_PLATFORM_BINDINGS),

@@ -65,12 +65,16 @@ from cc_sota_harness.passive_bid_trail_prewall import (
 )
 from cc_sota_harness.shared_24x5_merit_foundation import (
     DUAL_MACHINE_MERIT_GOAL_ID,
+    PORTABLE_COCKPIT_FAILOVER_HOST,
+    PRIMARY_SOVEREIGN_WORKSTATION_HOST,
     SHARED_24X5_LOSSLESS_FOUNDATION,
     SHARED_FOUNDATION_SCHEMA_VERSION,
+    SOVEREIGN_ENGINE_PORTS,
     UPSTREAM_PLATFORM_BINDINGS,
     LaneFoundationCheck,
     build_shared_foundation_manifest,
     validate_lane_foundation_contract,
+    validate_sovereign_host_authority,
 )
 from cc_sota_harness.upstream_execution_parity import (
     HFTBACKTEST_PIN,
@@ -141,6 +145,9 @@ __all__ = [
     "SpreadAnalyzerParity",
     "StrategyLifecycleRecord",
     "TradingLaneSpec",
+    "PORTABLE_COCKPIT_FAILOVER_HOST",
+    "PRIMARY_SOVEREIGN_WORKSTATION_HOST",
+    "SOVEREIGN_ENGINE_PORTS",
     "UPSTREAM_PLATFORM_BINDINGS",
     "VenueQuote",
     "WorkloadKind",
@@ -180,4 +187,5 @@ __all__ = [
     "validate_lane_foundation_contract",
     "validate_legacy_harvest_manifest",
     "validate_mcp_jsonrpc_notification_frame",
+    "validate_sovereign_host_authority",
 ]

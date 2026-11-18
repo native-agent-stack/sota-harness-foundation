@@ -4,24 +4,68 @@ from __future__ import annotations
 
 from cc_sota_harness.shared_24x5_merit_foundation import (
     DUAL_MACHINE_MERIT_GOAL_ID,
+    PORTABLE_COCKPIT_FAILOVER_HOST,
+    PRIMARY_SOVEREIGN_WORKSTATION_HOST,
     SHARED_24X5_LOSSLESS_FOUNDATION,
+    SOVEREIGN_ENGINE_PORTS,
     UPSTREAM_PLATFORM_BINDINGS,
     LaneFoundationCheck,
     build_shared_foundation_manifest,
     validate_lane_foundation_contract,
+    validate_sovereign_host_authority,
 )
 
 
 def test_shared_foundation_manifest_and_upstream_bindings() -> None:
     mf = build_shared_foundation_manifest()
-    assert mf["adr"] == "ADR-0040"
+    assert mf["adr"] == "ADR-0041"
     assert mf["goal_id"] == DUAL_MACHINE_MERIT_GOAL_ID
+    assert mf["primary_sovereign_host"] == PRIMARY_SOVEREIGN_WORKSTATION_HOST == "stationary_noesis_win32"
+    assert mf["portable_cockpit_host"] == PORTABLE_COCKPIT_FAILOVER_HOST == "portable_mac_m5_max"
     assert mf["upstream_domains_count"] == 6
     assert len(mf["foundation_sha256"]) == 64
     assert SHARED_24X5_LOSSLESS_FOUNDATION["paper_and_live_share_same_foundation"] is True
+    assert SHARED_24X5_LOSSLESS_FOUNDATION["workstation_hosts_main_framework_and_trading_engine"] is True
+    assert set(SOVEREIGN_ENGINE_PORTS.values()) == {8799, 8787, 8797, 4002, 8798}
     assert set(SHARED_24X5_LOSSLESS_FOUNDATION["active_mac_ports"].values()) == {8799, 8787, 8797, 4002, 8798}
     assert "nautilus_trader" in UPSTREAM_PLATFORM_BINDINGS["event_and_queue_microstructure_sim_s2"]["upstreams"]
     assert "skfolio" in UPSTREAM_PLATFORM_BINDINGS["backtest_and_statistical_falsification_s1"]["upstreams"]
+
+
+def test_sovereign_workstation_primary_and_portable_mac_failover_authority() -> None:
+    # Default: Stationary Noesis is active 24/5 broker host; Portable Mac is read-only cockpit
+    ok_primary, errs_primary = validate_sovereign_host_authority(
+        active_broker_host="stationary_noesis_win32",
+        mac_read_only_radar=True,
+        noesis_read_only_radar=False,
+    )
+    assert ok_primary and not errs_primary
+
+    # Dual active (both submitting orders) fails closed
+    bad_dual, errs_dual = validate_sovereign_host_authority(
+        active_broker_host="stationary_noesis_win32",
+        mac_read_only_radar=False,
+        noesis_read_only_radar=False,
+    )
+    assert not bad_dual
+    assert any("PORTABLE_MAC_MUST_BE_READ_ONLY_COCKPIT" in e for e in errs_dual)
+
+    # Explicit Portable Mac failover lease (Noesis read-only/offline) passes
+    ok_fo, errs_fo = validate_sovereign_host_authority(
+        active_broker_host="portable_mac_m5_max",
+        mac_read_only_radar=False,
+        noesis_read_only_radar=True,
+    )
+    assert ok_fo and not errs_fo
+
+    # Unknown host fails closed
+    bad_unk, errs_unk = validate_sovereign_host_authority(
+        active_broker_host="rogue_box",
+        mac_read_only_radar=True,
+        noesis_read_only_radar=True,
+    )
+    assert not bad_unk
+    assert any("UNKNOWN_ACTIVE_BROKER_HOST" in e for e in errs_unk)
 
 
 def test_lane_foundation_gating_and_nan_fail_closed() -> None:
