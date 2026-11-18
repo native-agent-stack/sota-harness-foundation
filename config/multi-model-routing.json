@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "1.0.0",
-  "verifiedAt": "2026-11-17",
+  "schemaVersion": "1.1.0",
+  "verifiedAt": "2026-11-18",
   "benchmarkSource": {
     "provider": "Artificial Analysis",
     "url": "https://artificialanalysis.ai/models",
@@ -18,12 +18,16 @@
     "workspaceName": "cc-lead",
     "primaryRuntime": "claude",
     "orchestratorPlugin": "oh-my-claudecode@omc",
+    "centralHubCli": "sota-cc-hub",
+    "workflowId": "cc_lead_multi_runtime_workers",
     "defaultModelAlias": "fable",
     "defaultModelId": "claude-fable-5-2",
     "effortLevel": "xhigh",
     "autoCompactWindow": 600000,
     "advisorModel": "claude-fable-5-2",
     "omcWorkerDefaultEnv": {
+      "OMC_RUNTIME_V2": "1",
+      "OMC_TEAM_WORKTREE_MODE": "branch",
       "OMC_CODEX_DEFAULT_MODEL": "gpt-6.2-astra",
       "OMC_ANTIGRAVITY_DEFAULT_MODEL": "gemini-4-carbon-high",
       "OMC_GEMINI_DEFAULT_MODEL": "gemini-4-carbon-high",
@@ -272,6 +276,7 @@
     {"name": "code-review-graph", "binary": "code-review-graph", "orcaNativeAgent": null, "harnessPair": "codebase-memory-mcp", "category": "code-intelligence"},
     {"name": "cli-proxy-api", "binary": "cli-proxy-api", "orcaNativeAgent": null, "harnessPair": "CLIProxyAPI", "category": "model-router"},
     {"name": "trivy", "binary": "trivy", "orcaNativeAgent": null, "harnessPair": "supply-chain-cve-scanner", "category": "security-gate"},
-    {"name": "markitdown", "binary": "markitdown", "orcaNativeAgent": null, "harnessPair": "sec-exhibit-pdf-parser", "category": "document-ingestion"}
+    {"name": "markitdown", "binary": "markitdown", "orcaNativeAgent": null, "harnessPair": "sec-exhibit-pdf-parser", "category": "document-ingestion"},
+    {"name": "orca", "binary": "orca", "orcaNativeAgent": null, "harnessPair": "stablyai/orca", "category": "worktree-orchestration"}
   ]
 }
