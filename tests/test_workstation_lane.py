@@ -16,9 +16,11 @@ from cc_sota_harness.workstation_lane import (
     build_orca_coop_sync_plan,
     classify_topology_mode,
     enforce_workstation_wsl_and_gateway_guard,
+    filter_lease_safe_sync_repos,
     portable_thread_budget,
     resolve_workstation_placement,
     validate_dual_workstation_manifest,
+    validate_headless_orca_serve_flags,
 )
 
 
@@ -148,3 +150,26 @@ def test_adr_0022_orca_coop_sync_plan_enforces_org_and_uuid() -> None:
 
     with pytest.raises(ValueError, match="native-agent-stack"):
         build_orca_coop_sync_plan(reference_url="https://example.com/outside")
+
+
+def test_adr_0025_headless_orca_serve_and_lease_safe_sync_guards() -> None:
+    validate_headless_orca_serve_flags(
+        ["orca", "serve", "--host", "100.110.115.22", "--port", "6770", "--no-pairing", "--refuse-public"]
+    )
+    with pytest.raises(PermissionError, match="--refuse-public"):
+        validate_headless_orca_serve_flags(["orca", "serve", "--host", "100.110.115.22", "--no-pairing"])
+    with pytest.raises(PermissionError, match="wildcard bind"):
+        validate_headless_orca_serve_flags(
+            ["orca", "serve", "--host", "0.0.0.0", "--no-pairing", "--refuse-public"]
+        )
+
+    safe, skipped = filter_lease_safe_sync_repos(
+        ["sota-harness-foundation", "sota-mover-ranker", "meridian"],
+        remote_active_leases=[{"repo": "sota-mover-ranker", "lease_key": "sota-mover-ranker::agy-noesis-24x5"}],
+        dirty_repos={"meridian"},
+    )
+    assert safe == ["sota-harness-foundation"]
+    assert skipped == {
+        "sota-mover-ranker": "remote_lease:sota-mover-ranker::agy-noesis-24x5",
+        "meridian": "dirty_worktree",
+    }

@@ -380,3 +380,47 @@ def build_orca_coop_sync_plan(
             "--json",
         ],
     }
+
+
+HEADLESS_ORCA_SERVE_REQUIRED_FLAGS: tuple[str, str] = ("--no-pairing", "--refuse-public")
+
+
+def validate_headless_orca_serve_flags(argv: list[str] | tuple[str, ...]) -> None:
+    """Enforce ADR-0025 hardened headless ``orca serve`` flags over Tailscale."""
+    tokens = [str(x).strip() for x in argv]
+    missing = [flag for flag in HEADLESS_ORCA_SERVE_REQUIRED_FLAGS if flag not in tokens]
+    if missing:
+        raise PermissionError(
+            f"ADR-0025 headless Orca daemon guard hard-refused missing required flags: {missing}"
+        )
+    for idx, tok in enumerate(tokens[:-1]):
+        if tok == "--host" and tokens[idx + 1] in {"0.0.0.0", "::"}:
+            raise PermissionError(
+                "ADR-0025 headless Orca daemon guard hard-refused wildcard bind; bind solely to Tailscale or loopback IP."
+            )
+
+
+def filter_lease_safe_sync_repos(
+    targets: list[str] | tuple[str, ...],
+    *,
+    remote_active_leases: list[dict[str, Any]] | tuple[dict[str, Any], ...] = (),
+    dirty_repos: set[str] | frozenset[str] = frozenset(),
+) -> tuple[list[str], dict[str, str]]:
+    """Filter candidate git sync targets so leased or dirty repos are never clobbered (ADR-0025)."""
+    leased_map: dict[str, str] = {}
+    for item in remote_active_leases:
+        repo = str(item.get("repo", "")).strip()
+        lease_key = str(item.get("lease_key", "")).strip() or f"{repo}::leased"
+        if repo and repo not in leased_map:
+            leased_map[repo] = lease_key
+
+    safe: list[str] = []
+    skipped: dict[str, str] = {}
+    for repo in targets:
+        if repo in leased_map:
+            skipped[repo] = f"remote_lease:{leased_map[repo]}"
+        elif repo in dirty_repos:
+            skipped[repo] = "dirty_worktree"
+        else:
+            safe.append(repo)
+    return safe, skipped
