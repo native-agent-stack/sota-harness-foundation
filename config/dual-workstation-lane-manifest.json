@@ -1,7 +1,9 @@
 {
-  "manifestVersion": "1.2.0",
+  "manifestVersion": "1.3.0",
   "verifiedAt": "2026-11-18",
-  "adrAuthority": "docs/adr/ADR-0029-dual-machine-orca-trading-and-harness-lanes-rth-shield-and-h090.md",
+  "adrAuthority": "docs/adr/ADR-0031-v390-nine-feed-df1-df9-orca-lane-hubs-v2-and-17repo-upstream-convergence.md",
+  "rankingDatafeedsSchema": "sota-ranking-datafeeds.v3.8",
+  "orcaLaneHubSchema": "sota-orca-lane-hub.v2",
   "crossMachineProtocol": {
     "supervisionPlane": "Orca Symmetric Cross-Machine Runtime Pairing (ws://100.93.211.101:6770 <-> ws://100.110.115.22:6770, --no-pairing --refuse-public, worktree.lineage.crossMachine + terminal.paired-parking.v1)",
     "meshNetwork": "Tailscale WireGuard Mesh (100.93.211.101 <-> 100.110.115.22) with sub-5ms LAN direct path",
@@ -9,9 +11,20 @@
     "localIntraHostBus": "sota-bus SQLite WAL (~/.agents/bus/peer_bus.db) + hcom",
     "prewallLakeMirror": {
       "cutoffDate": "2026-10-15",
+      "sha256": "a253421e873441740d5d4b410d993cfa7345fe34b88ec4ab7f4eecd537b3f234",
       "macLocalRoot": "~/Documents/market-data",
       "noesisWin32Root": "Z:/sota-data/prewall-lake",
       "noesisWsl2Root": "/mnt/z/sota-data/prewall-lake"
+    },
+    "orcaLaneHubs": {
+      "portable_mac_m5_max": {
+        "trading": "folder:4cf80c7f-96aa-42f1-a25c-a55e7d5e3f3a",
+        "harness": "folder:729df6dc-26e0-49e9-bad1-d4d57021c515"
+      },
+      "stationary_noesis": {
+        "trading": "folder:c4f93f9e-a710-4599-ac95-892082b03ec8",
+        "harness": "folder:060eb055-834e-4ef2-8198-e3e224a35fbe"
+      }
     },
     "singleActiveBrokerHostOnly": true,
     "offloadResearchWhenBrokerActive": true,

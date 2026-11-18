@@ -600,7 +600,10 @@ CANONICAL_TRADING_LANES: tuple[TradingLaneSpec, ...] = (
         repos=("canon", "trading-sota", "tsl"),
         workload_kind=WorkloadKind.HEAVY_PREWALL_RESEARCH,
         single_writer_paper_only=False,
-        endpoint_or_feed="sota-research-feeds.v2 <= 2026-10-15 (Z:/sota-data/prewall-lake <-> ~/Documents/market-data)",
+        endpoint_or_feed=(
+            "sota-ranking-datafeeds.v3.8 (DF1..DF9, <= 2026-10-15, "
+            "Z:/sota-data/prewall-lake sha256=a253421e8734...)"
+        ),
         stop_cap_pct=2.0,
     ),
     TradingLaneSpec(
@@ -750,7 +753,7 @@ CANONICAL_ORCHESTRATION_FRAMEWORKS: tuple[OrchestrationFrameworkSpec, ...] = (
     ),
     OrchestrationFrameworkSpec(
         framework_id="hcom-and-sota-peer-bus",
-        upstream_ref="aannoo/hcom + SQLite WAL + @@B64: E2EE",
+        upstream_ref="ComposioHQ/agent-orchestrator + aannoo/hcom + steveyegge/beads + SQLite WAL + @@B64: E2EE",
         primary_binary="hcom",
         supported_vendors=("Anthropic", "OpenAI", "Google DeepMind", "DeepSeek", "Moonshot AI", "xAI", "Meta"),
         enforces_one_model_per_session=True,
