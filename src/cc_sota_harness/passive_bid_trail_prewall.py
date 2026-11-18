@@ -1,0 +1,1144 @@
+"""Pre-Wall (`<= 2026-10-15`) Passive-Bid Queue x Variance-Compressing Dynamic Trail Study (`H088`).
+
+Implements pre-registered Trial #88 (`H088_PASSIVE_BID_X_VARIANCE_COMPRESSING_DYNAMIC_TRAIL`,
+`spec_sha256 = a37a033826006afae796c325251df5a8628082875e43d78241fe0c60c25e43fc`, `t*(88) = 4.1683`):
+
+Primary Pinned Upstream & Academic References:
+- `nkaz001/hftbacktest` (`5f3ec40b2afb764e0fea112f941ed85523ef4e88`, `queue.rs:42-96`):
+  `RiskAdverseQueueModel` passive L1 queue depletion with CTA/UTP `bs * 100.0` share-unit scaling.
+- `nautechsystems/nautilus_trader` (`da6b57aefdd62b44f675e434ffcfefca7f4025dd`):
+  `SpreadAnalyzer` & `OrderEmulator` monotonic trailing-stop ratchet semantics.
+- `ml4t/diagnostic` (`19e76072e64a18c9ba56130e4a7bcc0bc871f57e`):
+  López de Prado, Lipton & Zoonekynd (2025, ADIA Lab #19) `MinTRL` & native-frequency `DSR`.
+- `skfolio/skfolio` (`90e3fb907fab39d244d899f3caf4e9676889309c`):
+  `CombinatorialPurgedCV(n_folds=6, n_test_folds=2, purged_size=1, embargo_size=1)`.
+- `dgunning/edgartools` (`574c2bd15f6c629bceef03b6550ea8ac8abf3473`):
+  Point-in-time `S-3`/`424B*` 90-day shelf dilution shield.
+- Boehmer, Jones, Zhang & Zhang (2021, *Journal of Finance*): off-exchange `x == 'D'` sub-penny flow.
+- Glosten & Milgrom (1985, *JFE*) & Almgren & Chriss (2001, *Journal of Risk*): adverse selection & sqrt impact.
+- Kaminski & Lo (2014, *JPM*) & Zarattini, Aziz & Barbon (2024/2025): variance-compressing intraday stops on ORB.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import math
+from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict, dataclass
+from decimal import Decimal
+from pathlib import Path
+from typing import cast
+from zoneinfo import ZoneInfo
+
+import numpy as np
+import polars as pl
+import statsmodels.api as sm
+from ml4t.diagnostic.evaluation.stats import deflated_sharpe_ratio_from_statistics
+from skfolio.model_selection import CombinatorialPurgedCV
+
+from cc_sota_harness.compounding_pipeline import calibrate_protective_trail_pct, hlz_t_hurdle
+from cc_sota_harness.gates import STUDY_WALL, check_study_wall, ratchet_long_stop
+from cc_sota_harness.upstream_execution_parity import RiskAdverseQueueModel
+
+NY_TZ = ZoneInfo("America/New_York")
+
+H088_HYPOTHESIS_ID = "H088_PASSIVE_BID_X_VARIANCE_COMPRESSING_DYNAMIC_TRAIL"
+H088_TRIAL_N = 88
+H088_SPEC_SHA256 = "a37a033826006afae796c325251df5a8628082875e43d78241fe0c60c25e43fc"
+
+CTA_UTP_ROUND_LOT_SHARES = 100.0
+H088_RANGE_MULTIPLIER = 1.20
+H088_MIN_TRAIL_RATIO = 0.0045  # 45 bps floor
+H088_MAX_TRAIL_RATIO = 0.0180  # 180 bps ceiling (<= ADR-0022 200 bps)
+H088_GAIN_LOCK_ARM_BPS = 60.0  # Arm profit lock once bid/high reaches +60 bps
+H088_GAIN_LOCK_MFE_RETENTION = 0.65  # Retain 65% of peak excursion once armed
+H088_GAIN_LOCK_FLOOR_BPS = 8.0  # Minimum +8 bps locked once armed
+TICKET_NOTIONAL_USD = 25_000.0
+EXIT_HALF_SPREAD_1X_BPS = 5.0
+DILUTION_FORMS: tuple[str, ...] = ("S-3", "S-3/A", "S-3ASR", "424B2", "424B3", "424B4", "424B5", "EFFECT")
+
+
+@dataclass(frozen=True, slots=True)
+class QuoteTickNs:
+    ts_ns: int
+    bid_px: float
+    bid_lots: float
+    ask_px: float
+    ask_lots: float
+
+
+@dataclass(frozen=True, slots=True)
+class TradePrintNs:
+    ts_ns: int
+    price_px: float
+    size_shares: float
+
+
+@dataclass(frozen=True, slots=True)
+class AdverseBar1m:
+    ts_ns: int
+    open_px: float
+    high_px: float
+    low_px: float
+    close_px: float
+
+
+@dataclass(frozen=True, slots=True)
+class PassiveBidFillResult:
+    filled: bool
+    fill_px: float | None
+    fill_ts_ns: int | None
+    fill_reason: str
+    remaining_front_shares: float
+
+
+@dataclass(frozen=True, slots=True)
+class TrailExitResult:
+    exit_reason: str
+    exit_px: float
+    gross_return_bps: float
+    net_return_1x_bps: float
+    net_return_2x_bps: float
+    gain_lock_armed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class H088SubperiodSummary:
+    year: int
+    filled_events: int
+    distinct_dates: int
+    mean_net_1x_bps: float
+    mean_net_2x_bps: float
+
+
+@dataclass(frozen=True, slots=True)
+class H088PrewallResult:
+    hypothesis_id: str
+    spec_sha256: str
+    evaluated_at_utc: str
+    sample_min_date: str
+    sample_max_date: str
+    cumulative_trials_n: int
+    required_hlz_t_hurdle: float
+    liquid_orb_events_total: int
+    shielded_ignition_signals: int
+    filled_events_count: int
+    unfilled_runaway_count: int
+    passive_fill_rate_pct: float
+    distinct_dates: int
+    exposed_filled_events_count: int
+    mean_entry_spread_bps: float
+    mean_calibrated_trail_bps: float
+    adverse_selection_bps: float
+    h085_open_to_close_se_bps: float
+    h088_dynamic_trail_se_bps: float
+    se_variance_compression_pct: float
+    cvar95_open_to_close_bps: float
+    cvar95_dynamic_trail_bps: float
+    cvar95_loss_reduction_pct: float
+    gross_excess_bps: float
+    mean_exit_cost_1x_bps: float
+    net_return_1x_bps: float
+    net_return_2x_bps: float
+    net_1x_without_best_day_bps: float
+    t_stat_clustered_1x: float
+    t_stat_clustered_2x: float
+    daily_sharpe_native: float
+    annualized_sharpe_1x: float
+    dsr_probability: float
+    deflated_sharpe_native: float
+    cpcv_n_paths: int
+    cpcv_median_oos_sharpe_annualized: float
+    cpcv_positive_path_fraction: float
+    exit_reason_counts: dict[str, int]
+    subperiods: list[H088SubperiodSummary]
+    passes_all_gates: bool
+
+
+def compute_h088_trail_ratio(pre_entry_median_range_bps: float) -> float:
+    """Map causal pre-entry 1m bar range (bps) to [0.0045, 0.0180] <= ADR-0022 0.0200."""
+    if isinstance(pre_entry_median_range_bps, bool) or not math.isfinite(pre_entry_median_range_bps):
+        raise ValueError(f"pre_entry_median_range_bps must be finite, got {pre_entry_median_range_bps!r}")
+    clamped_range = max(10.0, pre_entry_median_range_bps)
+    cal = calibrate_protective_trail_pct(
+        prewall_median_bar_range_bps=clamped_range,
+        range_multiplier=H088_RANGE_MULTIPLIER,
+        min_stop_pct=H088_MIN_TRAIL_RATIO,
+    )
+    return min(H088_MAX_TRAIL_RATIO, max(H088_MIN_TRAIL_RATIO, cal))
+
+
+def simulate_passive_bid_orb_fill(
+    *,
+    limit_bid_px: float,
+    initial_bid_lots: float,
+    order_qty_shares: float,
+    trades: Sequence[TradePrintNs],
+    quotes: Sequence[QuoteTickNs],
+    tick_eps: float = 1e-6,
+) -> PassiveBidFillResult:
+    """Simulate conservative passive buy limit execution via pinned `RiskAdverseQueueModel` (`bs * 100`)."""
+    if (
+        not (math.isfinite(limit_bid_px) and math.isfinite(initial_bid_lots) and math.isfinite(order_qty_shares))
+        or limit_bid_px <= 0.0
+        or initial_bid_lots < 0.0
+        or order_qty_shares <= 0.0
+    ):
+        raise ValueError("Invalid passive queue inputs")
+
+    model = RiskAdverseQueueModel()
+    resting_shares = initial_bid_lots * CTA_UTP_ROUND_LOT_SHARES
+    q_pos = model.new_order(resting_shares)
+    prev_depth_shares = resting_shares
+
+    # Merge chronological post-entry quotes & trades; quotes at identical ns precede trades conservatively
+    merged: list[tuple[int, int, float, float]] = []
+    for qt in quotes:
+        merged.append((qt.ts_ns, 0, qt.bid_px, qt.bid_lots * CTA_UTP_ROUND_LOT_SHARES))
+        merged.append((qt.ts_ns, 1, qt.ask_px, -1.0))
+    for tr in trades:
+        merged.append((tr.ts_ns, 2, tr.price_px, tr.size_shares))
+    merged.sort(key=lambda item: (item[0], item[1]))
+
+    for ts_ns, kind, px, sz_shares in merged:
+        if kind == 1:
+            # Ask crossed strictly below resting bid limit -> marketable fill at resting limit
+            if 0.0 < px < limit_bid_px - tick_eps:
+                return PassiveBidFillResult(
+                    filled=True,
+                    fill_px=limit_bid_px,
+                    fill_ts_ns=ts_ns,
+                    fill_reason="ask_crossed",
+                    remaining_front_shares=0.0,
+                )
+        elif kind == 0:
+            if abs(px - limit_bid_px) <= tick_eps:
+                new_depth = max(0.0, sz_shares)
+                model.depth(q_pos, prev_depth_shares, new_depth)
+                prev_depth_shares = new_depth
+        else:
+            if px < limit_bid_px - tick_eps:
+                return PassiveBidFillResult(
+                    filled=True,
+                    fill_px=limit_bid_px,
+                    fill_ts_ns=ts_ns,
+                    fill_reason="trade_through",
+                    remaining_front_shares=0.0,
+                )
+            if abs(px - limit_bid_px) <= tick_eps:
+                # Require full order_qty_shares depletion behind initial_bid_shares
+                model.trade(q_pos, sz_shares)
+                if q_pos.front_q_qty + tick_eps <= -order_qty_shares:
+                    return PassiveBidFillResult(
+                        filled=True,
+                        fill_px=limit_bid_px,
+                        fill_ts_ns=ts_ns,
+                        fill_reason="queue_depleted",
+                        remaining_front_shares=0.0,
+                    )
+
+    return PassiveBidFillResult(
+        filled=False,
+        fill_px=None,
+        fill_ts_ns=None,
+        fill_reason="expired_unfilled",
+        remaining_front_shares=round(max(0.0, q_pos.front_q_qty), 2),
+    )
+
+
+def _ratchet_with_gain_lock(
+    *,
+    entry_px: float,
+    active_stop_px: float,
+    peak_px: float,
+    trail_ratio: float,
+) -> tuple[float, bool]:
+    new_stop = ratchet_long_stop(active_stop_px, peak_px, trail_ratio)
+    mfe_bps = ((peak_px - entry_px) / entry_px) * 10_000.0
+    armed = mfe_bps >= H088_GAIN_LOCK_ARM_BPS
+    if armed:
+        locked_bps = max(H088_GAIN_LOCK_FLOOR_BPS, mfe_bps * H088_GAIN_LOCK_MFE_RETENTION)
+        lock_px = entry_px * (1.0 + locked_bps / 10_000.0)
+        new_stop = max(new_stop, lock_px)
+    return new_stop, armed
+
+
+def replay_adverse_stop_first_exit(
+    *,
+    entry_px: float,
+    fill_ts_ns: int,
+    trail_ratio: float,
+    post_fill_quotes: Sequence[QuoteTickNs],
+    intraday_bars: Sequence[AdverseBar1m],
+    fallback_close_px: float,
+    exit_cost_1x_bps: float,
+) -> TrailExitResult:
+    """Replay Phase-A nanosecond firm NBBO quotes then Phase-B `ADVERSE_STOP_FIRST` 1m bars."""
+    if (
+        not (
+            math.isfinite(entry_px)
+            and math.isfinite(trail_ratio)
+            and math.isfinite(fallback_close_px)
+            and math.isfinite(exit_cost_1x_bps)
+        )
+        or entry_px <= 0.0
+        or fallback_close_px <= 0.0
+        or exit_cost_1x_bps < 0.0
+        or not (0.0 < trail_ratio <= 0.0200)
+    ):
+        raise ValueError("Invalid replay_adverse_stop_first_exit inputs")
+
+    initial_stop_px = entry_px * (1.0 - trail_ratio)
+    active_stop_px = initial_stop_px
+    peak_px = entry_px
+    gain_lock_armed = False
+    last_ns_checked = fill_ts_ns
+
+    # Phase A: Exact nanosecond firm NBBO bid quote sweep
+    for qt in post_fill_quotes:
+        if qt.ts_ns <= fill_ts_ns or qt.bid_px <= 0.0:
+            continue
+        last_ns_checked = max(last_ns_checked, qt.ts_ns)
+        if qt.bid_px <= active_stop_px + 1e-9:
+            exit_px = min(qt.bid_px, active_stop_px)
+            gross_bps = ((exit_px / entry_px) - 1.0) * 10_000.0
+            reason = "quote_gain_lock_or_trail" if active_stop_px > initial_stop_px + 1e-9 else "quote_adverse_stop"
+            return TrailExitResult(
+                exit_reason=reason,
+                exit_px=exit_px,
+                gross_return_bps=gross_bps,
+                net_return_1x_bps=gross_bps - exit_cost_1x_bps,
+                net_return_2x_bps=gross_bps - 2.0 * exit_cost_1x_bps,
+                gain_lock_armed=gain_lock_armed,
+            )
+        if qt.bid_px > peak_px:
+            peak_px = qt.bid_px
+            active_stop_px, armed_now = _ratchet_with_gain_lock(
+                entry_px=entry_px,
+                active_stop_px=active_stop_px,
+                peak_px=peak_px,
+                trail_ratio=trail_ratio,
+            )
+            gain_lock_armed = gain_lock_armed or armed_now
+
+    # Phase B: Strictly pessimistic ADVERSE_STOP_FIRST (check bar.low <= active_stop_px BEFORE bar.high ratchet)
+    half_spread_ratio = (EXIT_HALF_SPREAD_1X_BPS / 10_000.0)
+    last_bar_close = fallback_close_px
+    for bar in intraday_bars:
+        if bar.ts_ns <= last_ns_checked:
+            continue
+        last_bar_close = bar.close_px
+        if bar.low_px <= active_stop_px + 1e-9:
+            exit_px = min(bar.open_px, active_stop_px)
+            gross_bps = ((exit_px / entry_px) - 1.0) * 10_000.0
+            reason = "bar_gain_lock_or_trail" if active_stop_px > initial_stop_px + 1e-9 else "bar_adverse_stop"
+            return TrailExitResult(
+                exit_reason=reason,
+                exit_px=exit_px,
+                gross_return_bps=gross_bps,
+                net_return_1x_bps=gross_bps - exit_cost_1x_bps,
+                net_return_2x_bps=gross_bps - 2.0 * exit_cost_1x_bps,
+                gain_lock_armed=gain_lock_armed,
+            )
+        # Only after surviving bar.low > active_stop_px may peak_px ratchet conservatively (high minus half-spread)
+        conservative_bid_high = bar.high_px * (1.0 - half_spread_ratio)
+        if conservative_bid_high > peak_px:
+            peak_px = conservative_bid_high
+            active_stop_px, armed_now = _ratchet_with_gain_lock(
+                entry_px=entry_px,
+                active_stop_px=active_stop_px,
+                peak_px=peak_px,
+                trail_ratio=trail_ratio,
+            )
+            gain_lock_armed = gain_lock_armed or armed_now
+
+    gross_bps = ((last_bar_close / entry_px) - 1.0) * 10_000.0
+    return TrailExitResult(
+        exit_reason="time_flatten_1555",
+        exit_px=last_bar_close,
+        gross_return_bps=gross_bps,
+        net_return_1x_bps=gross_bps - exit_cost_1x_bps,
+        net_return_2x_bps=gross_bps - 2.0 * exit_cost_1x_bps,
+        gain_lock_armed=gain_lock_armed,
+    )
+
+
+def _date_clustered_mean_se_tstat(values_bps: np.ndarray, date_groups: np.ndarray) -> tuple[float, float, float]:
+    n = int(values_bps.size)
+    if n < 3:
+        return (float(np.mean(values_bps)) if n > 0 else 0.0, 0.0, 0.0)
+    unique_clusters = np.unique(date_groups)
+    if unique_clusters.size < 2:
+        return float(np.mean(values_bps)), 0.0, 0.0
+    ones = np.ones((n, 1), dtype=np.float64)
+    fit = sm.OLS(values_bps, ones).fit(cov_type="cluster", cov_kwds={"groups": date_groups})
+    mean_v = float(fit.params[0])
+    se_v = float(fit.bse[0])
+    t_v = float(fit.tvalues[0]) if se_v > 1e-12 and math.isfinite(float(fit.tvalues[0])) else 0.0
+    return mean_v, se_v, t_v
+
+
+def _sample_moments(series: np.ndarray) -> tuple[float, float, float]:
+    if series.size < 5:
+        return 0.0, 0.0, 0.0
+    centered = series - float(np.mean(series))
+    sd = float(np.std(series, ddof=1))
+    if sd <= 1e-12:
+        return 0.0, 0.0, 0.0
+    z = centered / sd
+    skew = float(np.mean(z**3))
+    ex_kurt = float(np.mean(z**4) - 3.0)
+    ac1 = float(np.corrcoef(series[:-1], series[1:])[0, 1]) if series.size > 2 else 0.0
+    if not math.isfinite(ac1):
+        ac1 = 0.0
+    return skew, ex_kurt, ac1
+
+
+def _cvar95_bps(arr_bps: np.ndarray) -> float:
+    if arr_bps.size == 0:
+        return 0.0
+    q05 = float(np.quantile(arr_bps, 0.05))
+    tail = arr_bps[arr_bps <= q05]
+    return float(np.mean(tail)) if tail.size > 0 else q05
+
+
+def evaluate_h088_prewall_panel(
+    panel_df: pl.DataFrame,
+    *,
+    all_session_dates: Sequence[dt.date],
+    cumulative_trials_n: int = H088_TRIAL_N,
+) -> H088PrewallResult:
+    """Evaluate pre-registered H088 metrics on a strictly pre-wall (`<= 2026-10-15`) ORB event panel."""
+    if panel_df.is_empty():
+        raise ValueError("panel_df must not be empty")
+
+    min_d: dt.date = panel_df.select(pl.col("trade_date").min()).item()
+    max_d: dt.date = panel_df.select(pl.col("trade_date").max()).item()
+    check_study_wall(min_d, stage="calibration")
+    check_study_wall(max_d, stage="calibration")
+    for sd in all_session_dates:
+        check_study_wall(sd, stage="calibration")
+
+    liquid = panel_df.filter(
+        (pl.col("prev_raw_close") >= 5.0)
+        & (pl.col("adv_20d_usd") >= 5_000_000.0)
+        & pl.col("sigma_20d").is_finite()
+        & (pl.col("split_drift") < 1e-4)
+        & (pl.col("entry_spread_bps") > 0.0)
+        & (pl.col("entry_spread_bps") <= 35.0)
+    )
+    if liquid.is_empty():
+        raise ValueError("Liquid pre-wall ORB panel is empty")
+
+    exit_1x_base = EXIT_HALF_SPREAD_1X_BPS / 10_000.0
+    enriched = liquid.with_columns(
+        [
+            (
+                pl.lit(exit_1x_base)
+                + 0.10 * pl.col("sigma_20d") * (pl.lit(TICKET_NOTIONAL_USD) / pl.col("adv_20d_usd")).sqrt()
+            ).alias("exit_cost_1x_ratio"),
+            (
+                (pl.col("ofi") >= 0.10)
+                & ((pl.col("iso_f_buy_share") >= 0.15) | (pl.col("bjzz_inst_dark_share") >= 0.12))
+                & (pl.col("regsho_short_ratio") >= 0.45)
+            ).alias("tape_ignition"),
+        ]
+    )
+
+    ign_all = enriched.filter(pl.col("tape_ignition"))
+    shielded_signals = ign_all.filter(~pl.col("recent_dilution_90d"))
+    exposed_filled = ign_all.filter(pl.col("recent_dilution_90d") & pl.col("passive_filled"))
+
+    filled = shielded_signals.filter(pl.col("passive_filled")).sort(["trade_date", "symbol"])
+    unfilled = shielded_signals.filter(~pl.col("passive_filled"))
+
+    fill_rate_pct = (100.0 * filled.height / shielded_signals.height) if shielded_signals.height > 0 else 0.0
+
+    # Adverse selection: filled mid-to-close vs unfilled runaway mid-to-close
+    filled_mid_close_bps = (
+        float(np.mean(np.asarray(filled["hold_close_from_mid_ret"].to_numpy(), dtype=np.float64))) * 10_000.0
+        if filled.height > 0
+        else 0.0
+    )
+    unfilled_mid_close_bps = (
+        float(np.mean(np.asarray(unfilled["hold_close_from_mid_ret"].to_numpy(), dtype=np.float64))) * 10_000.0
+        if unfilled.height > 0
+        else 0.0
+    )
+    adverse_sel_bps = filled_mid_close_bps - unfilled_mid_close_bps
+
+    filled = filled.with_columns(
+        [
+            (pl.col("trail_gross_ret") - pl.col("univ_orb_ret")).alias("gross_excess_ret"),
+            (pl.col("trail_gross_ret") - pl.col("univ_orb_ret") - pl.col("exit_cost_1x_ratio")).alias("net_1x_ret"),
+            (pl.col("trail_gross_ret") - pl.col("univ_orb_ret") - 2.0 * pl.col("exit_cost_1x_ratio")).alias("net_2x_ret"),
+            (
+                pl.col("hold_close_from_mid_ret")
+                + (pl.col("entry_spread_bps") / 20_000.0)
+                - pl.col("univ_orb_ret")
+                - pl.col("exit_cost_1x_ratio")
+            ).alias("h085_open_to_close_net_1x_ret"),
+        ]
+    )
+
+    t_hurdle = hlz_t_hurdle(cumulative_trials_n)
+    if filled.is_empty():
+        raise ValueError("No filled H088 events in panel")
+
+    net_1x_bps_arr = np.asarray(filled["net_1x_ret"].to_numpy(), dtype=np.float64) * 10_000.0
+    net_2x_bps_arr = np.asarray(filled["net_2x_ret"].to_numpy(), dtype=np.float64) * 10_000.0
+    h085_bps_arr = np.asarray(filled["h085_open_to_close_net_1x_ret"].to_numpy(), dtype=np.float64) * 10_000.0
+    gross_bps_arr = np.asarray(filled["gross_excess_ret"].to_numpy(), dtype=np.float64) * 10_000.0
+    cost_bps_arr = np.asarray(filled["exit_cost_1x_ratio"].to_numpy(), dtype=np.float64) * 10_000.0
+    spr_arr = np.asarray(filled["entry_spread_bps"].to_numpy(), dtype=np.float64)
+    trail_bps_arr = (
+        np.asarray(filled["calibrated_trail_bps"].to_numpy(), dtype=np.float64)
+        if "calibrated_trail_bps" in filled.columns
+        else np.full(filled.height, 120.0)
+    )
+    date_groups = np.asarray(filled["trade_date"].cast(pl.String).to_numpy())
+
+    mean_1x_bps, se_1x_bps, t_1x = _date_clustered_mean_se_tstat(net_1x_bps_arr, date_groups)
+    mean_2x_bps, _, t_2x = _date_clustered_mean_se_tstat(net_2x_bps_arr, date_groups)
+    _, se_h085_bps, _ = _date_clustered_mean_se_tstat(h085_bps_arr, date_groups)
+
+    se_comp_pct = ((1.0 - (se_1x_bps / se_h085_bps)) * 100.0) if se_h085_bps > 1e-9 else 0.0
+    cvar_h085 = _cvar95_bps(h085_bps_arr)
+    cvar_h088 = _cvar95_bps(net_1x_bps_arr)
+    cvar_red_pct = ((1.0 - (abs(cvar_h088) / abs(cvar_h085))) * 100.0) if abs(cvar_h085) > 1e-9 else 0.0
+
+    by_day = filled.group_by("trade_date").agg(pl.col("net_1x_ret").mean().alias("cohort_net_1x")).sort("trade_date")
+    best_day = by_day.sort("cohort_net_1x", descending=True).select("trade_date").head(1).item()
+    without_best = filled.filter(pl.col("trade_date") != pl.lit(best_day))
+    no_best_bps = (
+        float(np.mean(np.asarray(without_best["net_1x_ret"].to_numpy(), dtype=np.float64))) * 10_000.0
+        if without_best.height > 0
+        else 0.0
+    )
+
+    sessions_df = pl.DataFrame({"trade_date": sorted(set(all_session_dates))})
+    daily_rets = np.asarray(
+        sessions_df.join(by_day, on="trade_date", how="left")
+        .with_columns(pl.col("cohort_net_1x").fill_null(0.0))["cohort_net_1x"]
+        .to_numpy(),
+        dtype=np.float64,
+    )
+
+    def _native_sr(arr: np.ndarray) -> float:
+        sd = float(np.std(arr, ddof=1)) if arr.size > 2 else 0.0
+        return float(np.mean(arr) / sd) if sd > 1e-12 else 0.0
+
+    n_days = int(daily_rets.size)
+    sr_native = _native_sr(daily_rets)
+    sr_ann = sr_native * math.sqrt(252.0)
+
+    h085_by_day = filled.group_by("trade_date").agg(pl.col("h085_open_to_close_net_1x_ret").mean().alias("r"))
+    h085_daily = np.asarray(
+        sessions_df.join(h085_by_day, on="trade_date", how="left")
+        .with_columns(pl.col("r").fill_null(0.0))["r"]
+        .to_numpy(),
+        dtype=np.float64,
+    )
+    emp_var = float(np.var([sr_native, _native_sr(h085_daily)], ddof=1))
+    var_trials = max(emp_var, 1.0 / max(float(n_days), 1.0))
+    skew, ex_kurt, ac1 = _sample_moments(daily_rets)
+    dsr_res = deflated_sharpe_ratio_from_statistics(
+        observed_sharpe=sr_native,
+        n_samples=max(n_days, 10),
+        n_trials=max(cumulative_trials_n, 1),
+        variance_trials=var_trials,
+        benchmark_sharpe=0.0,
+        skewness=skew,
+        excess_kurtosis=ex_kurt,
+        autocorrelation=ac1,
+        frequency="daily",
+    )
+
+    cpcv_sharpes: list[float] = []
+    if n_days >= 60:
+        cv = CombinatorialPurgedCV(n_folds=6, n_test_folds=2, purged_size=1, embargo_size=1)
+        dummy_x = daily_rets.reshape(-1, 1)
+        splits = list(cv.split(dummy_x))
+        path_ids = cv.get_path_ids()
+        n_paths = int(path_ids.max()) + 1
+        for pid in range(n_paths):
+            segs: list[np.ndarray] = []
+            for s_idx, (train_idx, test_folds) in enumerate(splits):
+                if train_idx.size == 0:
+                    continue
+                for fold_pos, fold_indices in enumerate(test_folds):
+                    if int(path_ids[s_idx, fold_pos]) == pid:
+                        segs.append(np.asarray(fold_indices, dtype=int))
+            if segs:
+                full_oos_idx = np.sort(np.concatenate(segs))
+                cpcv_sharpes.append(_native_sr(daily_rets[full_oos_idx]) * math.sqrt(252.0))
+
+    cpcv_median = float(np.median(cpcv_sharpes)) if cpcv_sharpes else 0.0
+    cpcv_pos_frac = float(np.mean([s > 0.0 for s in cpcv_sharpes])) if cpcv_sharpes else 0.0
+
+    exit_counts: dict[str, int] = {}
+    if "exit_reason" in filled.columns:
+        for row in filled.group_by("exit_reason").len().iter_rows(named=True):
+            exit_counts[str(row["exit_reason"])] = int(row["len"])
+
+    subperiods: list[H088SubperiodSummary] = []
+    yr_df = (
+        filled.with_columns(pl.col("trade_date").dt.year().alias("year"))
+        .group_by("year")
+        .agg(
+            [
+                pl.len().alias("events"),
+                pl.col("trade_date").n_unique().alias("dates"),
+                (pl.col("net_1x_ret").mean() * 10_000.0).alias("m1x"),
+                (pl.col("net_2x_ret").mean() * 10_000.0).alias("m2x"),
+            ]
+        )
+        .sort("year")
+    )
+    for row in yr_df.iter_rows(named=True):
+        subperiods.append(
+            H088SubperiodSummary(
+                year=int(row["year"]),
+                filled_events=int(row["events"]),
+                distinct_dates=int(row["dates"]),
+                mean_net_1x_bps=round(float(row["m1x"]), 3),
+                mean_net_2x_bps=round(float(row["m2x"]), 3),
+            )
+        )
+
+    distinct_dt_count = int(filled["trade_date"].n_unique())
+    passes = (
+        filled.height >= 200
+        and distinct_dt_count >= 60
+        and t_1x >= t_hurdle
+        and float(dsr_res.probability) >= 0.95
+        and cpcv_pos_frac >= 0.80
+        and mean_1x_bps > 0.0
+        and mean_2x_bps > 0.0
+        and no_best_bps > 0.0
+    )
+
+    return H088PrewallResult(
+        hypothesis_id=H088_HYPOTHESIS_ID,
+        spec_sha256=H088_SPEC_SHA256,
+        evaluated_at_utc=dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        sample_min_date=min_d.isoformat(),
+        sample_max_date=max_d.isoformat(),
+        cumulative_trials_n=cumulative_trials_n,
+        required_hlz_t_hurdle=t_hurdle,
+        liquid_orb_events_total=liquid.height,
+        shielded_ignition_signals=shielded_signals.height,
+        filled_events_count=filled.height,
+        unfilled_runaway_count=unfilled.height,
+        passive_fill_rate_pct=round(fill_rate_pct, 2),
+        distinct_dates=distinct_dt_count,
+        exposed_filled_events_count=exposed_filled.height,
+        mean_entry_spread_bps=round(float(np.mean(spr_arr)), 3),
+        mean_calibrated_trail_bps=round(float(np.mean(trail_bps_arr)), 3),
+        adverse_selection_bps=round(adverse_sel_bps, 3),
+        h085_open_to_close_se_bps=round(se_h085_bps, 3),
+        h088_dynamic_trail_se_bps=round(se_1x_bps, 3),
+        se_variance_compression_pct=round(se_comp_pct, 2),
+        cvar95_open_to_close_bps=round(cvar_h085, 3),
+        cvar95_dynamic_trail_bps=round(cvar_h088, 3),
+        cvar95_loss_reduction_pct=round(cvar_red_pct, 2),
+        gross_excess_bps=round(float(np.mean(gross_bps_arr)), 3),
+        mean_exit_cost_1x_bps=round(float(np.mean(cost_bps_arr)), 3),
+        net_return_1x_bps=round(mean_1x_bps, 3),
+        net_return_2x_bps=round(mean_2x_bps, 3),
+        net_1x_without_best_day_bps=round(no_best_bps, 3),
+        t_stat_clustered_1x=round(t_1x, 4),
+        t_stat_clustered_2x=round(t_2x, 4),
+        daily_sharpe_native=round(sr_native, 5),
+        annualized_sharpe_1x=round(sr_ann, 4),
+        dsr_probability=round(float(dsr_res.probability), 5),
+        deflated_sharpe_native=round(float(dsr_res.deflated_sharpe), 5),
+        cpcv_n_paths=len(cpcv_sharpes),
+        cpcv_median_oos_sharpe_annualized=round(cpcv_median, 4),
+        cpcv_positive_path_fraction=round(cpcv_pos_frac, 4),
+        exit_reason_counts=exit_counts,
+        subperiods=subperiods,
+        passes_all_gates=passes,
+    )
+
+
+def _extract_single_orb_passive_candidate(
+    item: tuple[str, dt.date, str, Path, Path],
+) -> dict[str, object] | None:
+    sym, d_obj, hhmm, t_path, q_path = item
+    try:
+        hh, mm = int(hhmm[:2]), int(hhmm[2:])
+        m_start_ns = int(dt.datetime.combine(d_obj, dt.time(hh, mm, 0), tzinfo=NY_TZ).timestamp() * 1_000_000_000)
+        ns_entry = m_start_ns + 60_000_000_000
+        ns_end = ns_entry + 180_000_000_000
+
+        q_raw = pl.read_parquet(q_path, columns=["t_ns", "bp", "bs", "ap", "as"])
+        q_clean = (
+            q_raw.filter((pl.col("bp") > 0.0) & (pl.col("ap") >= pl.col("bp")))
+            .select(["t_ns", "bp", "bs", "ap", "as"])
+            .sort("t_ns")
+        )
+        if q_clean.is_empty():
+            return None
+
+        q_before = q_clean.filter(pl.col("t_ns") <= ns_entry).tail(1)
+        if q_before.height == 0:
+            q_before = q_clean.filter(
+                (pl.col("t_ns") > ns_entry) & (pl.col("t_ns") <= ns_entry + 5_000_000_000)
+            ).head(1)
+        if q_before.height == 0:
+            return None
+
+        bp_entry = float(q_before["bp"][0])
+        bs_entry = float(q_before["bs"][0])
+        ap_entry = float(q_before["ap"][0])
+        mid_entry = 0.5 * (bp_entry + ap_entry)
+        if mid_entry <= 0.0:
+            return None
+        entry_spread_bps = ((ap_entry - bp_entry) / mid_entry) * 10_000.0
+
+        t_raw = pl.read_parquet(t_path, columns=["t_ns", "x", "p", "s", "c", "u"])
+        t_m = t_raw.filter(
+            (pl.col("t_ns") >= m_start_ns)
+            & (pl.col("t_ns") < ns_entry)
+            & pl.col("u").is_null()
+            & (pl.col("p") > 0.0)
+            & (pl.col("s") > 0)
+        ).sort("t_ns")
+        if t_m.height < 5:
+            return None
+
+        q_m = q_clean.filter(pl.col("t_ns") < ns_entry).select(["t_ns", "bp", "ap"])
+        if q_m.height == 0:
+            return None
+
+        matched = t_m.join_asof(q_m, on="t_ns", strategy="backward", check_sortedness=False).with_columns(
+            (0.5 * (pl.col("bp") + pl.col("ap"))).alias("mid_q")
+        )
+        total_sh = float(matched["s"].sum())
+        if total_sh <= 0.0:
+            return None
+
+        # Lee-Ready quote rule + tick fallback on exact midpoint
+        signed = matched.with_columns(
+            pl.when(pl.col("p") > pl.col("mid_q") + 1e-6)
+            .then(pl.lit(1.0))
+            .when(pl.col("p") < pl.col("mid_q") - 1e-6)
+            .then(pl.lit(-1.0))
+            .otherwise(
+                pl.when(pl.col("p").diff().fill_null(0.0) > 0.0)
+                .then(pl.lit(1.0))
+                .when(pl.col("p").diff().fill_null(0.0) < 0.0)
+                .then(pl.lit(-1.0))
+                .otherwise(pl.lit(0.0))
+            )
+            .alias("lr_sign")
+        )
+        ofi = float((signed["s"] * signed["lr_sign"]).sum()) / total_sh
+        iso_buy_sh = float(
+            signed.filter(pl.col("c").list.contains("F") & (pl.col("lr_sign") > 0.0))["s"].sum()
+        )
+        iso_f_buy_share = iso_buy_sh / total_sh
+
+        # BJZZ (2021) institutional non-retail off-exchange ('D') sub-penny [0.40, 0.60] or whole-cent dark share
+        dark_d = signed.filter(pl.col("x") == "D")
+        inst_dark_sh = 0.0
+        for px_v, sz_v in zip(dark_d["p"].to_list(), dark_d["s"].to_list(), strict=False):
+            cents_mod = (Decimal(str(px_v)) * Decimal("100")) % Decimal("1")
+            if cents_mod == Decimal("0") or (Decimal("0.40") <= cents_mod <= Decimal("0.60")):
+                inst_dark_sh += float(sz_v)
+        bjzz_inst_dark_share = inst_dark_sh / total_sh
+
+        p_arr = np.asarray(t_m["p"].to_numpy(), dtype=np.float64)
+        p_hi = float(np.max(p_arr))
+        p_lo = float(np.min(p_arr))
+        minute_m_range_bps = max(10.0, ((p_hi - p_lo) / mid_entry) * 10_000.0)
+
+        # Post-signal [ns_entry, ns_end] passive bid queue simulation
+        t_post_df = t_raw.filter(
+            (pl.col("t_ns") > ns_entry)
+            & (pl.col("t_ns") <= ns_end)
+            & pl.col("u").is_null()
+            & (pl.col("p") > 0.0)
+            & (pl.col("s") > 0)
+        ).sort("t_ns")
+        q_post_df = q_clean.filter((pl.col("t_ns") > ns_entry) & (pl.col("t_ns") <= ns_end)).sort("t_ns")
+
+        post_trades = [
+            TradePrintNs(ts_ns=int(t), price_px=float(p), size_shares=float(s))
+            for t, p, s in zip(
+                t_post_df["t_ns"].to_list(),
+                t_post_df["p"].to_list(),
+                t_post_df["s"].to_list(),
+                strict=False,
+            )
+        ]
+        post_quotes = [
+            QuoteTickNs(
+                ts_ns=int(t),
+                bid_px=float(bp),
+                bid_lots=float(bs),
+                ask_px=float(ap),
+                ask_lots=float(asl),
+            )
+            for t, bp, bs, ap, asl in zip(
+                q_post_df["t_ns"].to_list(),
+                q_post_df["bp"].to_list(),
+                q_post_df["bs"].to_list(),
+                q_post_df["ap"].to_list(),
+                q_post_df["as"].to_list(),
+                strict=False,
+            )
+        ]
+
+        order_qty = max(1.0, float(round(TICKET_NOTIONAL_USD / bp_entry)))
+        fill_res = simulate_passive_bid_orb_fill(
+            limit_bid_px=bp_entry,
+            initial_bid_lots=bs_entry,
+            order_qty_shares=order_qty,
+            trades=post_trades,
+            quotes=post_quotes,
+        )
+        rem_quotes: list[QuoteTickNs] = []
+        if fill_res.filled and fill_res.fill_ts_ns is not None:
+            rem_quotes = [qt for qt in post_quotes if qt.ts_ns > fill_res.fill_ts_ns]
+
+        return {
+            "symbol": sym,
+            "trade_date": d_obj,
+            "entry_hhmm": hhmm,
+            "m_start_ns": m_start_ns,
+            "ns_entry": ns_entry,
+            "bp_entry": bp_entry,
+            "mid_entry": mid_entry,
+            "entry_spread_bps": entry_spread_bps,
+            "ofi": ofi,
+            "iso_f_buy_share": iso_f_buy_share,
+            "bjzz_inst_dark_share": bjzz_inst_dark_share,
+            "minute_m_range_bps": minute_m_range_bps,
+            "passive_filled": fill_res.filled,
+            "fill_ts_ns": fill_res.fill_ts_ns or 0,
+            "post_fill_quotes": rem_quotes,
+        }
+    except Exception:
+        return None
+
+
+def run_local_h088_prewall_study(
+    *,
+    years: tuple[int, ...] = (2024, 2025, 2026),
+    docs_root: Path | None = None,
+) -> H088PrewallResult:
+    """Execute full pre-wall (`<= 2026-10-15`) H088 evaluation on local SIP + SEC + FINRA lake."""
+    base_docs = docs_root or (Path.home() / "Documents")
+    u_root = base_docs / "trading-sota" / "data" / "private" / "universe"
+    sip_raw = base_docs / "market-data" / "alpaca-sip" / "raw"
+    o_root = sip_raw / "published-orb"
+    bars_root = sip_raw / "bars-1min"
+    p_root = base_docs / "market-data" / "public" / "tables"
+
+    wall_iso = STUDY_WALL.isoformat()
+    sec_symbols = pl.read_parquet(p_root / "sec_symbols.parquet")
+    sec_filings = pl.read_parquet(p_root / "sec_filings.parquet").filter(pl.col("filed").str.slice(0, 10) <= wall_iso)
+    short_vol = pl.read_parquet(p_root / "short_volume.parquet").filter(pl.col("day").str.slice(0, 10) <= wall_iso)
+
+    op_set = set(
+        sec_symbols.filter((pl.col("entity_type") == "operating") & pl.col("symbol").str.contains(r"^[A-Z]{1,4}$"))[
+            "symbol"
+        ].to_list()
+    )
+
+    daily_frames: list[pl.DataFrame] = []
+    for yr in years:
+        raw_df = (
+            pl.read_csv(u_root / str(yr) / "daily_raw.csv.gz", columns=["symbol", "ts_utc", "close", "volume"])
+            .with_columns(pl.col("ts_utc").str.slice(0, 10).alias("day_str"))
+            .filter((pl.col("day_str") <= wall_iso) & pl.col("symbol").is_in(op_set))
+            .select(
+                [
+                    pl.col("symbol"),
+                    pl.col("day_str").str.to_date().alias("trade_date"),
+                    pl.col("close").cast(pl.Float64).alias("raw_close"),
+                    pl.col("volume").cast(pl.Float64).alias("raw_volume"),
+                ]
+            )
+        )
+        spl_df = (
+            pl.read_csv(
+                u_root / str(yr) / "daily_split.csv.gz",
+                columns=["symbol", "ts_utc", "close"],
+            )
+            .with_columns(pl.col("ts_utc").str.slice(0, 10).alias("day_str"))
+            .filter((pl.col("day_str") <= wall_iso) & pl.col("symbol").is_in(op_set))
+            .select(
+                [
+                    pl.col("symbol"),
+                    pl.col("day_str").str.to_date().alias("trade_date"),
+                    pl.col("close").cast(pl.Float64).alias("split_close"),
+                ]
+            )
+        )
+        daily_frames.append(spl_df.join(raw_df, on=["symbol", "trade_date"], how="inner"))
+
+    daily_df = (
+        pl.concat(daily_frames, how="vertical")
+        .unique(subset=["symbol", "trade_date"], keep="last")
+        .sort(["symbol", "trade_date"])
+        .with_columns(
+            [
+                (pl.col("raw_close") * pl.col("raw_volume")).alias("raw_dv"),
+                (pl.col("split_close") / pl.col("split_close").shift(1).over("symbol") - 1.0).alias("ret_1d"),
+                pl.col("raw_close").shift(1).over("symbol").alias("prev_raw_close"),
+                pl.col("split_close").shift(1).over("symbol").alias("prev_split_close"),
+                (pl.col("split_close") / pl.col("raw_close")).alias("adj_factor"),
+            ]
+        )
+        .with_columns(
+            [
+                pl.col("raw_dv").shift(1).rolling_median(window_size=20, min_samples=20).over("symbol").alias("adv_20d_usd"),
+                pl.col("ret_1d").shift(1).rolling_std(window_size=20, min_samples=20).over("symbol").alias("sigma_20d"),
+                (((pl.col("prev_split_close") / pl.col("prev_raw_close")) / pl.col("adj_factor") - 1.0).abs()).alias(
+                    "split_drift"
+                ),
+            ]
+        )
+    )
+
+    work_items: list[tuple[str, dt.date, str, Path, Path]] = []
+    trades_base = o_root / "trades"
+    quotes_base = o_root / "quotes"
+    for sym_dir in sorted(trades_base.iterdir()):
+        if not sym_dir.is_dir() or sym_dir.name not in op_set:
+            continue
+        q_sym_dir = quotes_base / sym_dir.name
+        if not q_sym_dir.is_dir():
+            continue
+        for tf in sorted(sym_dir.glob("*.parquet")):
+            stem = tf.stem
+            if len(stem) < 15 or stem[:10] > wall_iso:
+                continue
+            qf = q_sym_dir / tf.name
+            if not qf.is_file():
+                continue
+            d_obj = dt.date.fromisoformat(stem[:10])
+            check_study_wall(d_obj, stage="calibration")
+            work_items.append((sym_dir.name, d_obj, stem[11:15], tf, qf))
+
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        raw_candidates = [r for r in pool.map(_extract_single_orb_passive_candidate, work_items) if r is not None]
+
+    # Separate post_fill_quotes map before building Polars DataFrame (keyed by symbol, trade_date, entry_hhmm)
+    quotes_by_key: dict[tuple[str, dt.date, str], list[QuoteTickNs]] = {}
+    clean_rows: list[dict[str, object]] = []
+    for item_dict in raw_candidates:
+        key = (
+            str(item_dict["symbol"]),
+            cast(dt.date, item_dict["trade_date"]),
+            str(item_dict["entry_hhmm"]),
+        )
+        quotes_by_key[key] = cast(list[QuoteTickNs], item_dict.pop("post_fill_quotes"))
+        clean_rows.append(item_dict)
+
+    orb_df = pl.DataFrame(clean_rows)
+
+    dilution_pit = (
+        sec_filings.filter(pl.col("form").is_in(DILUTION_FORMS))
+        .join(sec_symbols.select(["cik", "symbol"]), on="cik", how="inner")
+        .with_columns(pl.col("filed").str.slice(0, 10).str.to_date().alias("filed_date"))
+        .select(["symbol", "filed_date"])
+        .unique()
+        .sort(["symbol", "filed_date"])
+    )
+    short_pit = (
+        short_vol.with_columns(
+            [
+                pl.col("day").str.slice(0, 10).str.to_date().alias("sv_date"),
+                (pl.col("short_volume").cast(pl.Float64) / pl.col("total_volume").cast(pl.Float64)).alias(
+                    "regsho_short_ratio"
+                ),
+            ]
+        )
+        .filter(pl.col("total_volume") > 0)
+        .select(["symbol", "sv_date", "regsho_short_ratio"])
+        .unique(subset=["symbol", "sv_date"], keep="last")
+        .sort(["symbol", "sv_date"])
+    )
+
+    panel = (
+        orb_df.join(
+            daily_df.select(
+                ["symbol", "trade_date", "raw_close", "prev_raw_close", "adv_20d_usd", "sigma_20d", "split_drift"]
+            ),
+            on=["symbol", "trade_date"],
+            how="inner",
+        )
+        .filter(
+            (pl.col("prev_raw_close") >= 5.0)
+            & (pl.col("adv_20d_usd") >= 5_000_000.0)
+            & pl.col("sigma_20d").is_finite()
+            & (pl.col("split_drift") < 1e-4)
+            & (pl.col("entry_spread_bps") > 0.0)
+            & (pl.col("entry_spread_bps") <= 35.0)
+        )
+        .with_columns(pl.col("trade_date").dt.offset_by("-1d").alias("prior_cal_date"))
+        .sort(["symbol", "prior_cal_date"])
+    )
+
+    panel = panel.join_asof(
+        dilution_pit,
+        left_on="prior_cal_date",
+        right_on="filed_date",
+        by="symbol",
+        strategy="backward",
+        check_sortedness=False,
+    ).with_columns(
+        (pl.col("filed_date").is_not_null() & ((pl.col("trade_date") - pl.col("filed_date")).dt.total_days() <= 90)).alias(
+            "recent_dilution_90d"
+        )
+    )
+    panel = panel.join_asof(
+        short_pit,
+        left_on="prior_cal_date",
+        right_on="sv_date",
+        by="symbol",
+        strategy="backward",
+        check_sortedness=False,
+    ).with_columns(
+        [
+            pl.col("regsho_short_ratio").fill_null(0.0),
+            (pl.col("raw_close") / pl.col("mid_entry") - 1.0).alias("hold_close_from_mid_ret"),
+        ]
+    )
+    panel = panel.with_columns(pl.col("hold_close_from_mid_ret").mean().over("trade_date").alias("univ_orb_ret"))
+
+    # Identify shielded passive-filled ignition events that require intraday 1m bar replay
+    ign_mask = (
+        (pl.col("ofi") >= 0.10)
+        & ((pl.col("iso_f_buy_share") >= 0.15) | (pl.col("bjzz_inst_dark_share") >= 0.12))
+        & (pl.col("regsho_short_ratio") >= 0.45)
+        & (~pl.col("recent_dilution_90d"))
+        & pl.col("passive_filled")
+    )
+    filled_targets = panel.filter(ign_mask)
+    syms_by_date: dict[dt.date, set[str]] = {}
+    for sym_v, dt_v in zip(filled_targets["symbol"].to_list(), filled_targets["trade_date"].to_list(), strict=False):
+        syms_by_date.setdefault(dt_v, set()).add(str(sym_v))
+
+    def _load_day_bars(item: tuple[dt.date, set[str]]) -> tuple[dt.date, dict[str, list[tuple[int, float, float, float, float]]]]:
+        d_val, sym_set = item
+        day_dir = bars_root / d_val.isoformat()
+        if not day_dir.is_dir():
+            return d_val, {}
+        rth_open_ns = int(dt.datetime.combine(d_val, dt.time(9, 30, 0), tzinfo=NY_TZ).timestamp() * 1_000_000_000)
+        flatten_ns = int(dt.datetime.combine(d_val, dt.time(15, 54, 0), tzinfo=NY_TZ).timestamp() * 1_000_000_000)
+        df_b = (
+            pl.scan_parquet(str(day_dir / "*.parquet"))
+            .filter(
+                pl.col("symbol").is_in(list(sym_set))
+                & (pl.col("t_ns") >= rth_open_ns)
+                & (pl.col("t_ns") <= flatten_ns)
+                & (pl.col("l") > 0.0)
+            )
+            .select(["symbol", "t_ns", "o", "h", "l", "c"])
+            .collect()
+            .sort(["symbol", "t_ns"])
+        )
+        grouped: dict[str, list[tuple[int, float, float, float, float]]] = {}
+        for s_n, t_n, o_p, h_p, l_p, c_p in zip(
+            df_b["symbol"].to_list(),
+            df_b["t_ns"].to_list(),
+            df_b["o"].to_list(),
+            df_b["h"].to_list(),
+            df_b["l"].to_list(),
+            df_b["c"].to_list(),
+            strict=False,
+        ):
+            grouped.setdefault(str(s_n), []).append((int(t_n), float(o_p), float(h_p), float(l_p), float(c_p)))
+        return d_val, grouped
+
+    bars_lookup: dict[tuple[str, dt.date], list[tuple[int, float, float, float, float]]] = {}
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        for d_val, sym_map in pool.map(_load_day_bars, list(syms_by_date.items())):
+            for sym_k, bar_list in sym_map.items():
+                bars_lookup[(sym_k, d_val)] = bar_list
+
+    trail_gross_col: list[float] = []
+    cal_trail_bps_col: list[float] = []
+    exit_reason_col: list[str] = []
+
+    for row in panel.iter_rows(named=True):
+        if not row["passive_filled"]:
+            trail_gross_col.append(0.0)
+            cal_trail_bps_col.append(0.0)
+            exit_reason_col.append("unfilled")
+            continue
+
+        key_q = (str(row["symbol"]), row["trade_date"], str(row["entry_hhmm"]))
+        key_b = (str(row["symbol"]), row["trade_date"])
+        day_bars = bars_lookup.get(key_b, [])
+        ns_entry_v = int(row["ns_entry"])
+        fill_ts_v = int(row["fill_ts_ns"])
+        rem_quotes_v = quotes_by_key.get(key_q, [])
+        handoff_ns = max((qt.ts_ns for qt in rem_quotes_v), default=fill_ts_v)
+
+        # Causal pre-entry 1m bar median range (bar close t_ns + 60s <= ns_entry_v)
+        pre_ranges = [
+            ((h_p - l_p) / c_p) * 10_000.0
+            for (t_n, _, h_p, l_p, c_p) in day_bars
+            if t_n + 60_000_000_000 <= ns_entry_v and c_p > 0.0
+        ]
+        pre_med_bps = float(np.median(pre_ranges)) if pre_ranges else float(row["minute_m_range_bps"])
+        trail_ratio = compute_h088_trail_ratio(pre_med_bps)
+
+        post_bars = [
+            AdverseBar1m(ts_ns=t_n + 60_000_000_000, open_px=o_p, high_px=h_p, low_px=l_p, close_px=c_p)
+            for (t_n, o_p, h_p, l_p, c_p) in day_bars
+            if t_n >= handoff_ns
+        ]
+        cost_1x_bps = (
+            EXIT_HALF_SPREAD_1X_BPS
+            + 0.10 * float(row["sigma_20d"]) * math.sqrt(TICKET_NOTIONAL_USD / float(row["adv_20d_usd"])) * 10_000.0
+        )
+        res_exit = replay_adverse_stop_first_exit(
+            entry_px=float(row["bp_entry"]),
+            fill_ts_ns=fill_ts_v,
+            trail_ratio=trail_ratio,
+            post_fill_quotes=rem_quotes_v,
+            intraday_bars=post_bars,
+            fallback_close_px=float(row["raw_close"]),
+            exit_cost_1x_bps=cost_1x_bps,
+        )
+        trail_gross_col.append(res_exit.gross_return_bps / 10_000.0)
+        cal_trail_bps_col.append(trail_ratio * 10_000.0)
+        exit_reason_col.append(res_exit.exit_reason)
+
+    panel = panel.with_columns(
+        [
+            pl.Series("trail_gross_ret", trail_gross_col, dtype=pl.Float64),
+            pl.Series("calibrated_trail_bps", cal_trail_bps_col, dtype=pl.Float64),
+            pl.Series("exit_reason", exit_reason_col, dtype=pl.String),
+        ]
+    )
+    all_sessions = daily_df.select("trade_date").unique().sort("trade_date")["trade_date"].to_list()
+    return evaluate_h088_prewall_panel(panel, all_session_dates=all_sessions, cumulative_trials_n=H088_TRIAL_N)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Run pre-registered H088 pre-wall study (<=2026-10-15)")
+    parser.add_argument("--out-json", type=str, default="")
+    args = parser.parse_args()
+
+    res = run_local_h088_prewall_study()
+    payload = json.dumps(asdict(res), indent=2)
+    if args.out_json:
+        out_p = Path(args.out_json).expanduser().resolve()
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        out_p.write_text(payload + "\n", encoding="utf-8")
+    print(payload)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

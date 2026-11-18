@@ -1,5 +1,5 @@
 {
-  "manifestVersion": "1.1.0",
+  "manifestVersion": "1.2.0",
   "verifiedAt": "2026-11-18",
   "studyWallDate": "2026-10-15",
   "githubOrganization": {
@@ -95,27 +95,27 @@
       "verifiedModelFamilies": ["anthropic", "google", "openai"]
     },
     {
-      "strategyId": "REF_REJECTED_TIGHT_TRAIL_NOISE_EXAMPLE",
-      "trialN": 79,
-      "specSha256": "0000000000000000000000000000000000000000000000000000000000000079",
+      "strategyId": "H088_PASSIVE_BID_X_VARIANCE_COMPRESSING_DYNAMIC_TRAIL",
+      "trialN": 88,
+      "specSha256": "a37a033826006afae796c325251df5a8628082875e43d78241fe0c60c25e43fc",
       "status": "REJECTED_PREWALL",
       "queueModel": "RiskAdverseQueueModel",
       "calibrationMaxDate": "2026-10-15",
-      "eventsCount": 500,
-      "distinctDates": 180,
-      "cpcvPositiveShare": 0.2,
-      "dsrProbability": 0.05,
-      "tStatClustered": -1.8,
-      "netReturn1xBps": -8.0,
-      "netReturn2xBps": -19.0,
-      "verifiedModelFamilies": ["anthropic", "openai", "google"]
+      "eventsCount": 1273,
+      "distinctDates": 549,
+      "cpcvPositiveShare": 0.0,
+      "dsrProbability": 0.0,
+      "tStatClustered": -2.1925,
+      "netReturn1xBps": -15.16,
+      "netReturn2xBps": -20.658,
+      "verifiedModelFamilies": ["anthropic", "google", "openai"]
     }
   ],
   "nextHypothesisQueue": [
     {
-      "strategyId": "H086_PASSIVE_BID_X_VARIANCE_COMPRESSING_DYNAMIC_TRAIL",
-      "nextTrialN": 86,
-      "requiredHlzTHurdle": 4.1631,
+      "strategyId": "H089_TWO_STAGE_HYBRID_ENTRY_X_ASYMMETRIC_RUNNER_CONVEXITY",
+      "nextTrialN": 89,
+      "requiredHlzTHurdle": 4.1709,
       "prewallMedianBarRangeBps": 150.0,
       "rangeMultiplier": 1.2,
       "calibratedMaxStopPct": 0.018,
