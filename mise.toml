@@ -20,7 +20,7 @@ ty = "0.0.104"
 duckdb = "2.0.0"
 
 # L3 / L4 Multi-Model Harnesses, Agent Runtimes & Orchestration Fabric
-# (OMC, Codex+OMX, OpenCode+OMO, Pi+OMP, Gemini CLI, Goose, DeepSeek Harness, OmniRoute, CCR, Worktrunk)
+# (OMC, Codex+OMX, OpenCode+OMO, Pi+OMP, Gemini CLI, DeepSeek Harness, OmniRoute, CCR, Worktrunk)
 "npm:oh-my-claude-sisyphus" = "5.8.4"
 codex = "0.169.0"
 "npm:oh-my-codex" = "0.22.10"
@@ -29,7 +29,6 @@ codex = "0.169.0"
 "aqua:earendil-works/pi" = "1.5.2"
 "github:can1357/oh-my-pi" = "18.22.0"
 "npm:@google/gemini-cli" = "0.68.0"
-"aqua:aaif-goose/goose" = "1.59.2"
 "npm:@deepseek-ai/dsh" = "0.2.2-rc.2"
 "npm:@deepseek-harness-tui/dsh-tui" = "0.20.1"
 "npm:@musistudio/claude-code-router" = "3.1.5"
