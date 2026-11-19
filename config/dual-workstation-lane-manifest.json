@@ -1,6 +1,6 @@
 {
   "manifestVersion": "1.3.0",
-  "verifiedAt": "2026-11-18",
+  "verifiedAt": "2026-11-19",
   "adrAuthority": "docs/adr/ADR-0031-v390-nine-feed-df1-df9-orca-lane-hubs-v2-and-17repo-upstream-convergence.md",
   "rankingDatafeedsSchema": "sota-ranking-datafeeds.v3.8",
   "orcaLaneHubSchema": "sota-orca-lane-hub.v2",
@@ -56,10 +56,10 @@
     "stationary_noesis_heavy": {
       "machineId": "stationary-noesis-threadripper-4090",
       "formFactor": "stationary_workstation",
-      "platform": "win32+wsl2(Noesis-Carbon,sextant)",
+      "platform": "win32+wsl2(Noesis-Carbon)",
       "defaultWslGuest": "Noesis-Carbon (Ubuntu 26.04.1 LTS ext4)",
       "stageBResetSealed": true,
-      "zNvmeFreeTb": 2.85,
+      "zNvmeFreeTb": 3.47,
       "cpu": "AMD Threadripper (64 logical cores)",
       "cpuCores": 64,
       "memoryGb": 128,
