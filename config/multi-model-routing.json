@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.3.0",
-  "verifiedAt": "2026-11-18",
+  "verifiedAt": "2026-11-19",
   "benchmarkSource": {
     "provider": "Artificial Analysis",
     "url": "https://artificialanalysis.ai/models",
@@ -28,9 +28,8 @@
       "OMC_MODEL_MEDIUM": "claude-sonnet-5-5",
       "OMC_MODEL_LOW": "claude-sonnet-5-5",
       "OMC_CODEX_DEFAULT_MODEL": "gpt-6.2-astra",
-      "OMC_ANTIGRAVITY_DEFAULT_MODEL": "gemini-4-carbon-high",
-      "OMC_GEMINI_DEFAULT_MODEL": "gemini-4-carbon-high",
-      "OMC_GROK_DEFAULT_MODEL": "grok-4.7",
+      "OMC_ANTIGRAVITY_DEFAULT_MODEL": "gemini-4-neon-xhigh",
+      "OMC_GEMINI_DEFAULT_MODEL": "gemini-4-neon-high",
       "OMC_JEV_MAX_EFFORT": "xhigh"
     }
   },
@@ -80,6 +79,8 @@
       {
         "family": "Google DeepMind",
         "models": [
+          "gemini-4-neon-xhigh",
+          "gemini-4-neon-high",
           "gemini-4-carbon-high"
         ],
         "runtimes": [
@@ -160,14 +161,14 @@
       "primaryRole": "OMC Sisyphus & Hephaestus execution loops, execution-verifier, and shelf-synthesizer subagents"
     },
     {
-      "id": "claude-haiku-5-5",
-      "alias": "haiku",
-      "vendor": "Anthropic",
-      "aaIntelligenceIndexApprox": 41,
-      "aaCodingAgentIndexApprox": 40,
-      "rankSummary": "Low-latency deterministic routing & triage tier",
-      "defaultEffort": "medium",
-      "primaryRole": "Fast intent classification, metadata extraction, and lightweight hook triage"
+      "id": "gemini-4-neon-xhigh",
+      "alias": "gemini-4-neon-xhigh",
+      "vendor": "Google DeepMind",
+      "aaIntelligenceIndexApprox": 63,
+      "aaCodingAgentIndexApprox": 57,
+      "rankSummary": "Frontier Google DeepMind Antigravity flagship orchestrator (gemini-pro-orchestrator-neon)",
+      "defaultEffort": "xhigh",
+      "primaryRole": "Primary Antigravity flagship multi-agent orchestrator, adversarial security review, and deep architectural synthesis"
     },
     {
       "id": "deepseek-v4.1-flash",
@@ -190,14 +191,14 @@
       "primaryRole": "Cross-family Gemini xhigh reasoning backup & long-horizon ADR/workflow verification"
     },
     {
-      "id": "grok-4.7",
-      "alias": "grok-4.7",
-      "vendor": "xAI",
-      "aaIntelligenceIndexApprox": 54,
-      "aaCodingAgentIndexApprox": 50,
-      "rankSummary": "Frontier real-time reasoning & search challenger",
+      "id": "gemini-4-neon-high",
+      "alias": "gemini-4-neon-high",
+      "vendor": "Google DeepMind",
+      "aaIntelligenceIndexApprox": 61,
+      "aaCodingAgentIndexApprox": 56,
+      "rankSummary": "High-throughput Google DeepMind Neon reasoning & verification tier",
       "defaultEffort": "high",
-      "primaryRole": "omc ask grok second-opinion & OmniRoute real-time regime cross-check"
+      "primaryRole": "High-throughput Antigravity / Gemini verification, trajectory introspection, and parallel synthesis"
     },
     {
       "id": "muse-spark-1.3",
@@ -279,7 +280,7 @@
       "orchestrator": "codex@openai-codex + oh-my-codex + council",
       "primaryModel": "gpt-6.2-astra",
       "challengerRuntime": "agy",
-      "challengerModel": "gemini-4-carbon-high"
+      "challengerModel": "gemini-4-neon-xhigh"
     },
     {
       "taskClass": "long_horizon_1m_shelf_and_filing_synthesis",
@@ -310,7 +311,7 @@
       "primaryRuntime": "omniroute",
       "orchestrator": "claude-code-router (ccr) + rtk + promptfoo",
       "primaryModel": "claude-fable-5-2",
-      "challengerRuntime": "goose",
+      "challengerRuntime": "dsh",
       "challengerModel": "deepseek-v4.1-flash"
     }
   ],
@@ -384,17 +385,6 @@
       "orcaNativeAgent": "omp",
       "harnessPair": "pi",
       "category": "worker-runtime"
-    },
-    {
-      "name": "goose",
-      "binary": "goose",
-      "orcaNativeAgent": null,
-      "harnessPair": "OmniRoute / MCP",
-      "category": "worker-runtime",
-      "platforms": [
-        "darwin",
-        "linux"
-      ]
     },
     {
       "name": "dsh",
@@ -572,8 +562,8 @@
     },
     {
       "suitabilityClass": "skill_quality_eval_and_trajectory_tuning",
-      "model": "gemini-4-carbon-high",
-      "effort": "high",
+      "model": "gemini-4-neon-xhigh",
+      "effort": "xhigh",
       "worker": "antigravity",
       "surface": "local"
     },
@@ -628,6 +618,8 @@
       "claude-opus-5-5",
       "gpt-6.2-astra",
       "gpt-6.2-sol",
+      "gemini-4-neon-xhigh",
+      "gemini-4-neon-high",
       "gemini-4-carbon-high",
       "deepseek-flash"
     ],

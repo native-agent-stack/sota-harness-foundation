@@ -763,10 +763,10 @@ CANONICAL_ORCHESTRATION_FRAMEWORKS: tuple[OrchestrationFrameworkSpec, ...] = (
         forbids_gpt_on_hephaestus=True,
     ),
     OrchestrationFrameworkSpec(
-        framework_id="pi-omp-goose-superspec",
-        upstream_ref="pi + omp + goose + github/spec-kit + obra/superpowers",
+        framework_id="pi-omp-superspec",
+        upstream_ref="pi + omp + github/spec-kit + obra/superpowers",
         primary_binary="pi",
-        supported_vendors=("Anthropic", "DeepSeek"),
+        supported_vendors=("Anthropic", "OpenAI", "DeepSeek"),
         enforces_one_model_per_session=True,
         forbids_gpt_on_hephaestus=True,
     ),

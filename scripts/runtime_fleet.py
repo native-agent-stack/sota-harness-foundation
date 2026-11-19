@@ -74,10 +74,11 @@ def validate_routing_matrix(*, config_only: bool = False) -> tuple[dict, list[st
         "claude-fable-5-2",
         "gpt-6.2-astra",
         "gpt-6.2-sol",
+        "gemini-4-neon-xhigh",
+        "gemini-4-neon-high",
         "gemini-4-carbon-high",
         "claude-opus-5-5",
         "claude-sonnet-5-5",
-        "claude-haiku-5-5",
         "deepseek-v4.1-flash",
         "gemini-4-hydrogen-xhigh",
     ):
@@ -93,6 +94,9 @@ def validate_routing_matrix(*, config_only: bool = False) -> tuple[dict, list[st
         "gpt-6.1-sol",
         "gpt-6-astra",
         "claude-fable-5-1",
+        "claude-haiku",
+        "grok",
+        "goose",
     )
     for m_id, m_meta in models.items():
         hay = f"{m_id} {m_meta.get('alias', '')} {m_meta.get('vendor', '')}".lower()

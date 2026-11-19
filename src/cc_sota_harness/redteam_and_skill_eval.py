@@ -94,8 +94,8 @@ _LIVE_ENDPOINT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 _HOME_PATH_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("win32_home_path", re.compile(r"[A-Za-z]:[/\\]{1,2}Users[/\\]{1,2}[A-Za-z0-9._-]+")),
-    ("macos_home_path", re.compile(r"(?<![A-Za-z0-9_])/" + r"Users/[A-Za-z0-9._-]+")),
-    ("linux_home_path", re.compile(r"(?<![A-Za-z0-9_])/home/[A-Za-z0-9._-]+")),
+    ("macos_home_path", re.compile(r"(?<![A-Za-z0-9_*])/" + r"Users/[A-Za-z0-9._-]+")),
+    ("linux_home_path", re.compile(r"(?<![A-Za-z0-9_*])/home/[A-Za-z0-9._-]+")),
 )
 
 _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -129,6 +129,10 @@ _SAFE_FIREWALL_DOCUMENTATION_MARKERS: tuple[str, ...] = (
     "blocked",
     "forbids",
     "refused",
+    "zero live",
+    "denieddomains",
+    "expecteddecision",
+    '"bash(*',
 )
 
 _STOPWORDS: frozenset[str] = frozenset(
