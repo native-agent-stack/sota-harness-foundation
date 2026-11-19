@@ -1,5 +1,5 @@
-# Orca (https://github.com/stablyai/orca) dual-machine workspace recipe for sota-harness-foundation
-# Supports portable Apple M5 Max (macOS) + paired stationary Noesis 64c/128GB/RTX4090 (Windows + WSL2).
+# Orca (https://github.com/stablyai/orca) dual-machine workspace recipe for sota-harness-foundation (v3.10.9)
+# Supports portable Apple M5 Max (macOS) + paired stationary Noesis 64c/128GB/RTX4090 (Windows + WSL2 Noesis-Carbon).
 # Cross-OS invariant: commands run identically in Win32 PowerShell, macOS zsh, and Linux bash.
 scripts:
   setup: |
@@ -9,7 +9,7 @@ defaultTabs:
   - title: CC Lead
   - title: Dual-Workstation Lane
     command: uv run python scripts/workstation_lane.py
-  - title: Harness & Fleet Doctor
-    command: uv run python scripts/doctor.py --fast
-  - title: SOTA Shelf & Tests
-    command: uv run pytest
+  - title: MADR 4.0 & Runtime Fleet
+    command: uv run python scripts/architecture_catalog.py --check && uv run python scripts/runtime_fleet.py
+  - title: SOTA Contract & Red-Team Suite
+    command: uv run pytest -q
