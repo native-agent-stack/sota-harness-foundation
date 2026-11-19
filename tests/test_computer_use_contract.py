@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from cc_sota_harness import (
@@ -78,17 +80,17 @@ def test_resolve_computer_use_tier_escalation_ladder() -> None:
 
 
 @pytest.mark.parametrize("bad_bool", [1, 0, "true", "false", None, []])
-def test_strict_bool_validation_rejects_non_bools(bad_bool: object) -> None:
+def test_strict_bool_validation_rejects_non_bools(bad_bool: Any) -> None:
     with pytest.raises(ValueError, match="strict bool"):
         resolve_computer_use_tier(
-            has_cli_rpc_or_mcp=bad_bool,  # type: ignore[arg-type]
+            has_cli_rpc_or_mcp=bad_bool,
             is_web_browser_task=False,
             has_accessibility_tree=True,
         )
     with pytest.raises(ValueError, match="strict bool"):
         evaluate_gated_action_policy(
             action_category="orca_desktop_settings_uia",
-            owner_directive_sanctioned=bad_bool,  # type: ignore[arg-type]
+            owner_directive_sanctioned=bad_bool,
         )
 
 
@@ -122,13 +124,13 @@ def test_invalid_host_platform_and_empty_action_category_fail_closed() -> None:
     ],
 )
 def test_hard_invariants_block_even_when_owner_sanctioned(
-    kwargs: dict[str, object],
+    kwargs: dict[str, Any],
     expected_token: str,
 ) -> None:
     dec = evaluate_gated_action_policy(
         action_category="orca_desktop_settings_uia",
         owner_directive_sanctioned=True,
-        **kwargs,  # type: ignore[arg-type]
+        **kwargs,
     )
     assert isinstance(dec, GatedActionDecision)
     assert dec.allowed_autonomous is False
@@ -186,8 +188,10 @@ def test_computer_use_manifest_completeness() -> None:
     manifest = build_computer_use_manifest()
     assert manifest["adr"] == "ADR-0042"
     assert manifest["schemaVersion"] == COMPUTER_USE_SCHEMA_VERSION
-    assert len(manifest["escalationOrder"]) == 4  # type: ignore[arg-type]
-    assert len(manifest["permissionTiers"]) == 3  # type: ignore[arg-type]
+    escalation = manifest["escalationOrder"]
+    tiers = manifest["permissionTiers"]
+    assert isinstance(escalation, list) and len(escalation) == 4
+    assert isinstance(tiers, list) and len(tiers) == 3
     stack = UPSTREAM_COMPUTER_USE_REFERENCE_STACK
     for required_repo in (
         "simular-ai/Agent-S",
