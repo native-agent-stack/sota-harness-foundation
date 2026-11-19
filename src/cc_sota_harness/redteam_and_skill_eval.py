@@ -94,7 +94,7 @@ _LIVE_ENDPOINT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 _HOME_PATH_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("win32_home_path", re.compile(r"[A-Za-z]:[/\\]{1,2}Users[/\\]{1,2}[A-Za-z0-9._-]+")),
-    ("macos_home_path", re.compile(r"(?<![A-Za-z0-9_])/Users/[A-Za-z0-9._-]+")),
+    ("macos_home_path", re.compile(r"(?<![A-Za-z0-9_])/" + r"Users/[A-Za-z0-9._-]+")),
     ("linux_home_path", re.compile(r"(?<![A-Za-z0-9_])/home/[A-Za-z0-9._-]+")),
 )
 

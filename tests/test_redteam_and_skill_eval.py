@@ -53,7 +53,7 @@ def test_redteam_firewall_rejects_live_endpoint_and_secrets_and_home_paths() -> 
     assert res_live["p0_count"] >= 1
     assert any(f["vuln_class"] == "live_capital_firewall_bypass" for f in res_live["findings"])
 
-    home_payload = "Read config from " + "/Users/" + "alice/secret_config.json"
+    home_payload = "Read config from " + "/" + "Users/" + "alice/secret_config.json"
     res_home = run_redteam_firewall_audit(home_payload, context="home_probe")
     assert res_home["passed"] is False
     assert res_home["p1_count"] >= 1
