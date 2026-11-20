@@ -10,10 +10,12 @@ plus SOTA quantitative trading-firewall invariants (`ADR-0022`, `ADR-0041`, `ADR
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -494,8 +496,6 @@ def evaluate_skill_directory(
     tier2_ok = len(blocking) == 0
 
     # Tier 3: Cross-runtime compatibility (valid slug naming, declared_name parity, valid Python script AST)
-    import ast as _ast
-
     valid_slug = bool(re.fullmatch(r"[a-z0-9][a-z0-9_-]*", skill_path.name))
     if not valid_slug:
         errors.append(f"invalid cross-runtime skill directory name {skill_path.name!r}")
@@ -503,7 +503,7 @@ def evaluate_skill_directory(
     for py_f in sorted(skill_path.rglob("*.py")):
         if py_f.is_file():
             try:
-                _ast.parse(py_f.read_text(encoding="utf-8", errors="replace"), filename=str(py_f))
+                ast.parse(py_f.read_text(encoding="utf-8", errors="replace"), filename=str(py_f))
             except SyntaxError as exc:
                 py_ast_ok = False
                 errors.append(f"python syntax error in {py_f.relative_to(skill_path).as_posix()}: {exc.msg}")
@@ -530,8 +530,9 @@ def evaluate_skill_corpus(
     *,
     overlap_threshold: float = 0.72,
     max_skill_bytes: int = 128_000,
+    runtime_mount_roots: Mapping[str, Path] | None = None,
 ) -> dict[str, Any]:
-    """Run all 4 SkillEvaluator tiers (Schema, Security, Cross-Runtime Compat, Semantic Overlap) across a skill root."""
+    """Run all 4 SkillEvaluator tiers (Schema, Security, Cross-Runtime Mount Parity, Semantic Overlap) across a skill root."""
     if not (0.0 < overlap_threshold <= 1.0):
         raise ValueError(f"overlap_threshold must be in (0, 1], got {overlap_threshold!r}")
     root = Path(skills_root)
@@ -560,6 +561,63 @@ def evaluate_skill_corpus(
             }
         )
 
+    # Real Tier-3 Cross-Runtime Mount Audit when runtime_mount_roots is provided (checks missing skills,
+    # broken symlinks, and full skill-directory manifest SHA-256 parity across SKILL.md + executable scripts/resources).
+    def _skill_dir_manifest_sha256(skill_dir: Path) -> str | None:
+        if not (skill_dir / "SKILL.md").is_file():
+            return None
+        entries: list[tuple[str, str]] = []
+        for f in sorted(skill_dir.rglob("*")):
+            if not f.is_file():
+                continue
+            rel = f.relative_to(skill_dir)
+            if "__pycache__" in rel.parts or f.suffix == ".pyc":
+                continue
+            entries.append((rel.as_posix(), hashlib.sha256(f.read_bytes()).hexdigest()))
+        return hashlib.sha256(json.dumps(entries, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+    mount_parity: dict[str, dict[str, Any]] = {}
+    if runtime_mount_roots:
+        canon_hashes: dict[str, str] = {}
+        for d in skill_dirs:
+            mh = _skill_dir_manifest_sha256(d)
+            if mh is not None:
+                canon_hashes[d.name] = mh
+        res_by_skill = {r["skill"]: r for r in results}
+        for rt_name, m_root in sorted(runtime_mount_roots.items()):
+            m_path = Path(m_root)
+            missing_rt: list[str] = []
+            drifted_rt: list[str] = []
+            broken_rt: list[str] = []
+            if not m_path.is_dir():
+                missing_rt = sorted(canon_hashes.keys())
+            else:
+                for p in sorted(m_path.iterdir()):
+                    if p.is_symlink() and not p.exists():
+                        broken_rt.append(p.name)
+                for sname, expected_sha in sorted(canon_hashes.items()):
+                    actual_sha = _skill_dir_manifest_sha256(m_path / sname)
+                    if actual_sha is None:
+                        missing_rt.append(sname)
+                    elif actual_sha != expected_sha:
+                        drifted_rt.append(sname)
+            rt_ok = not (missing_rt or drifted_rt or broken_rt)
+            mount_parity[rt_name] = {
+                "root": str(m_path.name),
+                "ok": rt_ok,
+                "missing_count": len(missing_rt),
+                "drifted_count": len(drifted_rt),
+                "broken_symlinks": broken_rt,
+                "missing": missing_rt[:10],
+                "drifted": drifted_rt[:10],
+            }
+            for sname in (*missing_rt, *drifted_rt):
+                r_item = res_by_skill.get(sname)
+                if r_item is not None:
+                    r_item["tier3_runtime_compat_ok"] = False
+                    r_item["passed"] = False
+                    r_item["errors"].append(f"mount_parity_fail:{rt_name}")
+
     # Tier 4: Pairwise token-Jaccard overlap check over frontmatter descriptions
     overlap_warnings: list[dict[str, Any]] = []
     token_sets = [(r["skill"], set(r["description_tokens"])) for r in results]
@@ -584,6 +642,7 @@ def evaluate_skill_corpus(
 
     failed_skills = [r["skill"] for r in results if not r["passed"]]
     passed_count = len(results) - len(failed_skills)
+    mounts_all_ok = all(bool(v["ok"]) for v in mount_parity.values())
     digest = hashlib.sha256(
         json.dumps(
             {
@@ -591,6 +650,7 @@ def evaluate_skill_corpus(
                 "skills_evaluated": len(results),
                 "failed_skills": failed_skills,
                 "overlap_warnings": overlap_warnings,
+                "mount_parity": mount_parity,
             },
             sort_keys=True,
         ).encode("utf-8")
@@ -598,7 +658,7 @@ def evaluate_skill_corpus(
 
     return {
         "schema_version": REDTEAM_SKILLEVAL_SCHEMA_VERSION,
-        "all_passed": len(failed_skills) == 0 and len(results) > 0,
+        "all_passed": len(failed_skills) == 0 and len(results) > 0 and mounts_all_ok,
         "skills_evaluated": len(results),
         "passed_count": passed_count,
         "failed_count": len(failed_skills),
@@ -607,6 +667,8 @@ def evaluate_skill_corpus(
         "overlap_warnings": overlap_warnings,
         "compatible_runtimes_count": len(CANONICAL_ACTIVE_EIGHT_RUNTIMES),
         "compatible_runtimes": list(CANONICAL_ACTIVE_EIGHT_RUNTIMES),
+        "mounts_checked": len(mount_parity),
+        "mount_parity": mount_parity,
         "results": results,
         "report_sha256": digest,
     }

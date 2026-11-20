@@ -149,3 +149,81 @@ def test_skill_evaluator_4tiers_pass_and_detect_drift_and_overlap(tmp_path: Path
     assert corpus2["all_passed"] is False
     assert "sota-gamma-stale" in corpus2["failed_skills"]
     assert len(corpus2["overlap_warnings"]) >= 1
+
+
+def test_skill_evaluator_tier3_mount_parity_python_ast_and_stale_slugs(tmp_path: Path) -> None:
+    canon = tmp_path / "canonical"
+    mount_ok = tmp_path / "mount_claude"
+    mount_drift = tmp_path / "mount_codex"
+    _write_skill(
+        canon,
+        "sota-alpha-gate",
+        desc="Deterministic quantitative research falsification protocol using HLZ t-hurdle and CPCV.",
+        body="# Alpha Gate\nRun pre-registered CPCV and DSR >= 0.95 verification across pre-wall data.",
+    )
+    _write_skill(
+        mount_ok,
+        "sota-alpha-gate",
+        desc="Deterministic quantitative research falsification protocol using HLZ t-hurdle and CPCV.",
+        body="# Alpha Gate\nRun pre-registered CPCV and DSR >= 0.95 verification across pre-wall data.",
+    )
+    _write_skill(
+        mount_drift,
+        "sota-alpha-gate",
+        desc="Deterministic quantitative research falsification protocol using HLZ t-hurdle and CPCV.",
+        body="# Alpha Gate\nDRIFTED CONTENT.",
+    )
+
+    ok_report = evaluate_skill_corpus(canon, runtime_mount_roots={"claude": mount_ok})
+    assert ok_report["all_passed"] is True
+    assert ok_report["mounts_checked"] == 1
+    assert ok_report["mount_parity"]["claude"]["ok"] is True
+    assert ok_report["mount_parity"]["claude"]["drifted_count"] == 0
+
+    # Even when SKILL.md is byte-identical, tampering with a bundled script in a runtime mount MUST fail parity
+    (canon / "sota-alpha-gate" / "scripts").mkdir(parents=True, exist_ok=True)
+    (canon / "sota-alpha-gate" / "scripts" / "helper.py").write_text("x = 1\n", encoding="utf-8")
+    (mount_ok / "sota-alpha-gate" / "scripts").mkdir(parents=True, exist_ok=True)
+    (mount_ok / "sota-alpha-gate" / "scripts" / "helper.py").write_text("x = 999\n", encoding="utf-8")
+    script_drift = evaluate_skill_corpus(canon, runtime_mount_roots={"claude": mount_ok})
+    assert script_drift["all_passed"] is False
+    assert script_drift["mount_parity"]["claude"]["ok"] is False
+    assert script_drift["mount_parity"]["claude"]["drifted_count"] == 1
+    # Restore byte-exact script parity for subsequent multi-mount test
+    (mount_ok / "sota-alpha-gate" / "scripts" / "helper.py").write_text("x = 1\n", encoding="utf-8")
+
+    drift_report = evaluate_skill_corpus(
+        canon,
+        runtime_mount_roots={
+            "claude": mount_ok,
+            "codex": mount_drift,
+            "missing_rt": tmp_path / "nonexistent_mount",
+        },
+    )
+    assert drift_report["all_passed"] is False
+    assert drift_report["mount_parity"]["claude"]["ok"] is True
+    assert drift_report["mount_parity"]["codex"]["ok"] is False
+    assert drift_report["mount_parity"]["codex"]["drifted_count"] == 1
+    assert drift_report["mount_parity"]["missing_rt"]["ok"] is False
+    assert drift_report["mount_parity"]["missing_rt"]["missing_count"] == 1
+
+    # Tier-3 Python script syntax error inside skill directory must fail evaluation
+    bad_py_skill = _write_skill(
+        tmp_path / "bad_py_root",
+        "sota-broken-script",
+        desc="Skill with broken Python helper script to verify AST parsing gate.",
+        body="# Broken Script\nRuns helper script.",
+    )
+    scripts_dir = bad_py_skill / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (scripts_dir / "broken.py").write_text("def oops(:\n    pass\n", encoding="utf-8")
+    bad_py_eval = evaluate_skill_directory(bad_py_skill)
+    assert bad_py_eval["passed"] is False
+    assert bad_py_eval["tier3_runtime_compat_ok"] is False
+    assert any("python syntax error" in err for err in bad_py_eval["errors"])
+
+    # Expanded zero-stale model slugs must be rejected by red-team firewall
+    for stale_slug in ("claude-fable-5-1", "gpt-6-astra", "gemini-3.8-flash"):
+        res = run_redteam_firewall_audit(f"Route worker to {stale_slug} for verification", context="stale_slug")
+        assert res["passed"] is False
+        assert any(f["vuln_class"] == "stale_or_retired_model_drift" for f in res["findings"])
