@@ -37,3 +37,4 @@
 "src/cc_sota_harness/tv_multilayout_lossless_contract.py" = { upstream = "lightweight-charts", how = "build-on", feature = "ADR-0045 TradingView multi-layout lossless & micro-trail contract", why = "align charting primitives, micro-trails, and 1,000 RPM rate budgets" }
 "src/cc_sota_harness/upstream_execution_parity.py" = { upstream = "nautilus_trader", how = "build-on", feature = "NautilusTrader / Alpaca / IBKR execution parity verifier", why = "ensure simulation and paper-broker order semantics stay aligned" }
 "src/cc_sota_harness/workstation_lane.py" = { upstream = "orca", how = "build-on", feature = "Dual-workstation Orca lane router and host role contract", why = "enforce singleActiveBrokerHostOnly across Mac M5 Max and Noesis" }
+"scripts/merge_gate.py" = { upstream = "orca", how = "build-on", feature = "ADR-0023 fail-closed upstream-map, 18-pin shelf & ADR evidence merge gate", why = "block unmapped files, banned libs, or unverified ADRs before landing" }
