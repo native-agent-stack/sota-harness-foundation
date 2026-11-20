@@ -1,0 +1,39 @@
+# ADR-0023 fail-closed upstream-map.toml for `sota-harness-foundation`
+
+[shelf_pins]
+"alpaca-py" = "c42add7c0a7026e2ead3ed64e76f4def2b99fda4"
+"alpaca-mcp-server" = "63cc4278d87b31f3ed4efcfaa55624095c6d7be8"
+"nautilus_trader" = "da6b57aefdd62b44f675e434ffcfefca7f4025dd"
+"nautilus-alpaca" = "59685d56631b981018a189b5ced1a7000a50bfbd"
+"polars" = "7f902bd3ffd27ff82d14278a09a295ff2f7aed92"
+"duckdb" = "d54cbbe3df17e8e5ce68312f483b4155836112aa"
+"edgartools" = "574c2bd15f6c629bceef03b6550ea8ac8abf3473"
+"ml4t-diagnostic" = "19e76072e64a18c9ba56130e4a7bcc0bc871f57e"
+"skfolio" = "90e3fb907fab39d244d899f3caf4e9676889309c"
+"hftbacktest" = "5f3ec40b2afb764e0fea112f941ed85523ef4e88"
+"ib_async" = "ab629f34c1823ea4c1542f32f07377208a86bdfd"
+"perspective" = "0264ec13cd28ef4a2a136c8ef021c3c112bc8990"
+"lightweight-charts" = "c29c51e1e5bc61981da5832c97797cb8283d120f"
+"quantstats" = "d1a214fb906e76f974f45cdccf923b601c67a756"
+"vectorbt" = "a52a984b631624bb9daf41cb19f532fe559cf0ef"
+"pandera" = "02b375ab43f39f8c5c5108695c1791fa04f99a26"
+"exchange_calendars" = "dbe38b1f6887434bbdd1a7d2df6ff8f1742a048a"
+"statsmodels" = "278ff9950636cdd4939b4055e339a8e681d79cab"
+
+[areas]
+"scripts/architecture_catalog.py" = { upstream = "orca", how = "build-on", feature = "MADR 4.0 ADR catalog and SHA-pinned workflow checker", why = "enforce zero-drift ADR documentation across the multi-runtime harness" }
+"scripts/runtime_fleet.py" = { upstream = "oh-my-claudecode", how = "build-on", feature = "8-runtime active model fleet & zero-stale-model health probe", why = "verify claude, codex, agy, opencode, dsh, omp, pi, and muse parity" }
+"scripts/workstation_lane.py" = { upstream = "orca", how = "build-on", feature = "Dual-workstation Mac M5 Max <-> Noesis Orca lane CLI", why = "route workloads cleanly with singleActiveBrokerHostOnly invariants" }
+"src/cc_sota_harness/__init__.py" = { upstream = "oh-my-claudecode", how = "integrate", feature = "Package export namespace for shared SOTA harness foundation", why = "expose deterministic contracts cleanly to all 8 runtimes" }
+"src/cc_sota_harness/compounding_pipeline.py" = { upstream = "ml4t-diagnostic", how = "build-on", feature = "5-stage Sim->Paper->Live compounding pipeline & HLZ/DSR gates", why = "enforce pre-wall statistical promotion bounds across runtimes" }
+"src/cc_sota_harness/computer_use_contract.py" = { upstream = "orca", how = "build-on", feature = "ADR-0042 5-layer hybrid computer-use & tiered permission contract", why = "escalate strictly L1 CLI -> L2 AX/UIA -> L3 CDP -> L4 VLM fail-closed" }
+"src/cc_sota_harness/gates.py" = { upstream = "hftbacktest", how = "build-on", feature = "ADR-0022 stop cap, live-capital firewall, and PIT monotonicity gates", why = "centralize fail-closed trading invariants for every agent worker" }
+"src/cc_sota_harness/h090_tight_spread_passive_bid_prewall.py" = { upstream = "hftbacktest", how = "build-on", feature = "Pre-wall H090 tight-spread passive bid-survival queue ablation", why = "test passive bid fills under queue realism <= 2026-10-15" }
+"src/cc_sota_harness/h095_two_stage_hybrid_collar_prewall.py" = { upstream = "hftbacktest", how = "build-on", feature = "Pre-wall H095 two-stage lit collar bifurcation & 15s sweep shield", why = "verify passive collar queue fills <= 2026-10-15" }
+"src/cc_sota_harness/institutional_frontier.py" = { upstream = "agent-orchestrator", how = "build-on", feature = "Institutional multi-runtime capability frontier & layer matrix", why = "track L0-L13 convergence across all active runtimes" }
+"src/cc_sota_harness/passive_bid_trail_prewall.py" = { upstream = "hftbacktest", how = "build-on", feature = "Pre-wall passive bid entry + dynamic trail ablation", why = "benchmark passive entry vs taker slippage <= 2026-10-15" }
+"src/cc_sota_harness/redteam_and_skill_eval.py" = { upstream = "agent-orchestrator", how = "build-on", feature = "ADR-0043/0046 Red-Team BugHunter, 4-Tier SkillEvaluator, and ADR-0023 banned-quant-lib audit", why = "audit all 60 skills & 8 runtime mounts for leaks, live bypasses, stale models, and banned quant libs" }
+"src/cc_sota_harness/shared_24x5_merit_foundation.py" = { upstream = "exchange_calendars", how = "build-on", feature = "ADR-0041 24/5 Lossless Foundation & BOATS/XNYS session merit contract", why = "coordinate stationary Noesis primary host & portable Mac failover" }
+"src/cc_sota_harness/tv_multilayout_lossless_contract.py" = { upstream = "lightweight-charts", how = "build-on", feature = "ADR-0045 TradingView multi-layout lossless & micro-trail contract", why = "align charting primitives, micro-trails, and 1,000 RPM rate budgets" }
+"src/cc_sota_harness/upstream_execution_parity.py" = { upstream = "nautilus_trader", how = "build-on", feature = "NautilusTrader / Alpaca / IBKR execution parity verifier", why = "ensure simulation and paper-broker order semantics stay aligned" }
+"src/cc_sota_harness/workstation_lane.py" = { upstream = "orca", how = "build-on", feature = "Dual-workstation Orca lane router and host role contract", why = "enforce singleActiveBrokerHostOnly across Mac M5 Max and Noesis" }

@@ -85,6 +85,18 @@ FORBIDDEN_STALE_MODEL_SLUGS: tuple[str, ...] = (
 
 RETIRED_RUNTIME_SLUGS: tuple[str, ...] = ("grok", "goose")
 
+BANNED_BACKTEST_ENGINE_SLUGS: tuple[str, ...] = (
+    "backtrader",
+    "backtesting.py",
+    "mlfinlab",
+    "tcapy",
+    "vollib",
+    "tradingview_ta",
+    "pandas-datareader",
+    "pandas_datareader",
+)
+DEPRECATED_DATA_LIB_SLUGS: tuple[str, ...] = ("yfinance",)
+
 _NEGATION_MARKERS: tuple[str, ...] = (
     "forbidden retired",
     "supersedes ",
@@ -310,6 +322,32 @@ def _scan_lines_for_findings(
                             rule_id=f"retired_runtime:{retired}",
                             line_number=lineno,
                             message=f"Retired runtime reference {retired!r} without explicit retirement/negation marker",
+                        )
+                    )
+            for banned_lib in BANNED_BACKTEST_ENGINE_SLUGS:
+                if re.search(rf"\b{re.escape(banned_lib)}\b", low) and not _line_is_negated(
+                    line, _SAFE_FIREWALL_DOCUMENTATION_MARKERS
+                ):
+                    findings.append(
+                        RedTeamFinding(
+                            severity="P1",
+                            vuln_class="supply_chain_and_unpinned_action",
+                            rule_id=f"adr0023_banned_quant_lib:{banned_lib}",
+                            line_number=lineno,
+                            message=f"ADR-0023 banned low-quality quant library {banned_lib!r} referenced without prohibition marker",
+                        )
+                    )
+            for dep_lib in DEPRECATED_DATA_LIB_SLUGS:
+                if re.search(rf"\b{re.escape(dep_lib)}\b", low) and not _line_is_negated(
+                    line, _SAFE_FIREWALL_DOCUMENTATION_MARKERS
+                ):
+                    findings.append(
+                        RedTeamFinding(
+                            severity="P2",
+                            vuln_class="supply_chain_and_unpinned_action",
+                            rule_id=f"adr0023_legacy_data_lib:{dep_lib}",
+                            line_number=lineno,
+                            message=f"ADR-0023 legacy data library {dep_lib!r} referenced; migrate to pinned alpaca-py/SIP or FMP",
                         )
                     )
     return findings
