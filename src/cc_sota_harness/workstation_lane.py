@@ -465,8 +465,8 @@ def build_noesis_sync_powershell_commands(
     )
     ps_cmds.append(
         'New-Item -ItemType Directory -Force "$HOME/.agents/skills" | Out-Null; '
-        "if (Test-Path C:/sota-workstation/agy-sota-harness/skills) { "
-        'Copy-Item -Recurse -Force C:/sota-workstation/agy-sota-harness/skills/* "$HOME/.agents/skills/" }'
+        "if (Test-Path C:/sota-workstation/agy-sota-harness/.agents/skills) { "
+        'Copy-Item -Recurse -Force C:/sota-workstation/agy-sota-harness/.agents/skills/* "$HOME/.agents/skills/" }'
     )
     ps_cmds.append('Write-Output "===SYNC_DONE==="')
     return ps_cmds
@@ -544,12 +544,15 @@ def resolve_prewall_lake_root(
 ) -> pathlib.Path:
     """Resolve canonical `<= 2026-10-15` pre-wall Parquet lake across Mac M5 Max, Noesis Win32, and Noesis-Carbon WSL2."""
     h = home if home is not None else pathlib.Path.home()
+    ext4_fast = h / "sota-data-ext4" / "prewall-lake"
     ext4_p = h / "sota-data" / "prewall-lake"
     wsl_p = wsl_lake if wsl_lake is not None else pathlib.Path("/mnt/z/sota-data/prewall-lake")
     win_p = win_lake if win_lake is not None else pathlib.Path("Z:/sota-data/prewall-lake")
     mac_p = h / "Documents" / "market-data"
     ordered = (
-        (ext4_p, wsl_p, win_p, mac_p) if (wsl_lake is None and win_lake is None) else (wsl_p, win_p, ext4_p, mac_p)
+        (ext4_fast, ext4_p, wsl_p, win_p, mac_p)
+        if (wsl_lake is None and win_lake is None)
+        else (wsl_p, win_p, ext4_fast, ext4_p, mac_p)
     )
     for cand in ordered:
         if cand.is_dir():

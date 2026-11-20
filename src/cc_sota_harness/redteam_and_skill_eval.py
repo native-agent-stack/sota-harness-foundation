@@ -64,10 +64,19 @@ FORBIDDEN_STALE_MODEL_SLUGS: tuple[str, ...] = (
     "deepseek-v4-pro",
     "deepseek-v4-flash",
     "gemini-3.8-flash",
+    "gemini-3.1-pro",
     "gpt-6.1-sol",
     "gpt-6-astra",
+    "gpt-6-sol",
+    "gpt-6-luna",
+    "gpt-5.6",
     "gpt-5.5",
+    "gpt-5.3",
+    "gpt-5-nano",
     "claude-fable-5-1",
+    "claude-haiku-5-5",
+    "claude-haiku-4-5",
+    "claude-opus-4-6",
     "kimi-",
     "moonshot" + "/",
 )
@@ -484,11 +493,21 @@ def evaluate_skill_directory(
             warnings.append(f"{f['rule_id']}@L{f['line_number']}: {f['message']}")
     tier2_ok = len(blocking) == 0
 
-    # Tier 3: Cross-runtime compatibility (valid slug naming, UTF-8 SKILL.md, no binary control files)
+    # Tier 3: Cross-runtime compatibility (valid slug naming, declared_name parity, valid Python script AST)
+    import ast as _ast
+
     valid_slug = bool(re.fullmatch(r"[a-z0-9][a-z0-9_-]*", skill_path.name))
     if not valid_slug:
         errors.append(f"invalid cross-runtime skill directory name {skill_path.name!r}")
-    tier3_ok = valid_slug and len(compatible_runtimes) == len(CANONICAL_ACTIVE_EIGHT_RUNTIMES)
+    py_ast_ok = True
+    for py_f in sorted(skill_path.rglob("*.py")):
+        if py_f.is_file():
+            try:
+                _ast.parse(py_f.read_text(encoding="utf-8", errors="replace"), filename=str(py_f))
+            except SyntaxError as exc:
+                py_ast_ok = False
+                errors.append(f"python syntax error in {py_f.relative_to(skill_path).as_posix()}: {exc.msg}")
+    tier3_ok = valid_slug and py_ast_ok and len(compatible_runtimes) == len(CANONICAL_ACTIVE_EIGHT_RUNTIMES)
 
     passed = tier1_ok and tier2_ok and tier3_ok
     return {
@@ -519,8 +538,27 @@ def evaluate_skill_corpus(
     if not root.is_dir():
         raise FileNotFoundError(f"skills_root does not exist: {root}")
 
+    broken_symlinks = sorted(
+        p.name for p in root.iterdir() if p.is_symlink() and not p.exists() and not p.name.startswith(".")
+    )
     skill_dirs = sorted(p for p in root.iterdir() if p.is_dir() and not p.name.startswith("."))
     results = [evaluate_skill_directory(d, max_skill_bytes=max_skill_bytes) for d in skill_dirs]
+    for bname in broken_symlinks:
+        results.append(
+            {
+                "skill": bname,
+                "declared_name": "",
+                "passed": False,
+                "tier1_schema_ok": False,
+                "tier2_security_ok": False,
+                "tier3_runtime_compat_ok": False,
+                "compatible_runtimes": [],
+                "errors": [f"broken skill symlink: {bname}"],
+                "warnings": [],
+                "findings": [],
+                "description_tokens": [],
+            }
+        )
 
     # Tier 4: Pairwise token-Jaccard overlap check over frontmatter descriptions
     overlap_warnings: list[dict[str, Any]] = []

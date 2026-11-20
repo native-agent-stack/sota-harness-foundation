@@ -37,14 +37,16 @@ def _orca_bin() -> str | None:
 
 
 def _probe_power() -> tuple[bool, float]:
+    if sys.platform != "darwin":
+        return True, 100.0
     try:
         out = subprocess.check_output(["/usr/bin/pmset", "-g", "batt"], text=True, timeout=4)
         on_ac = "AC Power" in out
         m = re.search(r"(\d{1,3})%", out)
-        pct = float(m.group(1)) if m else 100.0
+        pct = float(m.group(1)) if m else 0.0
         return on_ac, pct
     except Exception:
-        return True, 100.0
+        return False, 0.0
 
 
 def _probe_paired_orca(orca_bin: str, env_name: str) -> tuple[bool, float | None, int]:
