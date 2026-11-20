@@ -6,7 +6,7 @@ useDefault = true
 [[rules]]
 id = "broker-paper-or-demo-account-id"
 description = "Alpaca Paper (PA...) or IBKR Paper (DU...) account identifier"
-regex = '''\b(?:PA|DU)[0-9A-Z]{6,16}\b'''
+regex = '''\b(?:PA[A-Z]{0,4}[0-9][0-9A-Z]{5,14}|DU[0-9]{6,12})\b'''
 tags = ["account", "trading", "privacy"]
 
 [[rules]]
