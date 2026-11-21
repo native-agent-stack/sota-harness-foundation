@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib
 import pathlib
 import sys
 
@@ -19,21 +20,16 @@ for cand in SHELF_CANDIDATES:
 
 def main() -> int:
     try:
-        from shelf_lock.hard_upstream_rule import (
-            verify_adrs_have_evidence,
-            verify_sealed_manifests,
-            verify_shelf_pins_on_disk,
-            verify_upstream_map,
-        )
+        mod = importlib.import_module("shelf_lock.hard_upstream_rule")
     except ModuleNotFoundError as exc:
         print(f"[MERGE-GATE FAIL] Missing sota-upstream-shelf-lock: {exc}", file=sys.stderr)
         return 1
 
     problems = [
-        *verify_upstream_map(ROOT),
-        *verify_adrs_have_evidence(ROOT),
-        *verify_sealed_manifests(ROOT),
-        *verify_shelf_pins_on_disk(),
+        *mod.verify_upstream_map(ROOT),
+        *mod.verify_adrs_have_evidence(ROOT),
+        *mod.verify_sealed_manifests(ROOT),
+        *mod.verify_shelf_pins_on_disk(),
     ]
     if problems:
         for p in problems:
