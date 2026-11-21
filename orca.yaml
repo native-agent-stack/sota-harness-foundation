@@ -13,3 +13,5 @@ defaultTabs:
     command: uv run python scripts/architecture_catalog.py --check && uv run python scripts/runtime_fleet.py
   - title: SOTA Contract & Red-Team Suite
     command: uv run pytest -q
+  - title: Tier-0 Merge Gate
+    command: uv run python scripts/merge_gate.py
