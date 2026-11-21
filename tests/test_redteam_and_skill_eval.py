@@ -227,3 +227,27 @@ def test_skill_evaluator_tier3_mount_parity_python_ast_and_stale_slugs(tmp_path:
         res = run_redteam_firewall_audit(f"Route worker to {stale_slug} for verification", context="stale_slug")
         assert res["passed"] is False
         assert any(f["vuln_class"] == "stale_or_retired_model_drift" for f in res["findings"])
+
+    # Paper self-invention / from-scratch engine directives must be rejected (P1) unless negated
+    bad_paper = run_redteam_firewall_audit(
+        "Self-invent a strategy from scratch based on paper signals",
+        context="paper_self_invention",
+    )
+    assert bad_paper["passed"] is False
+    assert bad_paper["p1_count"] >= 1
+    assert any(f["vuln_class"] == "supply_chain_and_unpinned_action" for f in bad_paper["findings"])
+
+    bad_custom_bt = run_redteam_firewall_audit(
+        "Write a custom backtest engine from scratch for intraday equities",
+        context="custom_backtest_scratch",
+    )
+    assert bad_custom_bt["passed"] is False
+    assert bad_custom_bt["p1_count"] >= 1
+
+    negated_paper = run_redteam_firewall_audit(
+        "Never self-invent from paper; prohibited — only cleanly installed SOTA frameworks allowed.",
+        context="negated_paper_charter",
+        allow_documented_negations=True,
+    )
+    assert negated_paper["passed"] is True
+    assert negated_paper["p1_count"] == 0

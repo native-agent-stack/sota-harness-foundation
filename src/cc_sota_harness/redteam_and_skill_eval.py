@@ -141,6 +141,23 @@ _PROMPT_INJECTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
 )
 
+_PAPER_SELF_INVENTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "self_invent_from_paper",
+        re.compile(
+            r"\b(?:self[- ]invent|hand[- ]?roll|re[- ]?implement\s+from\s+scratch)\b[^\n]{0,60}\b(?:paper|papers|arxiv|literature)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "custom_backtest_from_scratch",
+        re.compile(
+            r"\b(?:build|write|create)\s+(?:a\s+)?(?:custom|hand[- ]?rolled)\s+(?:backtest(?:er|ing)?|trading)\s+(?:engine|loop)\s+from\s+scratch\b",
+            re.IGNORECASE,
+        ),
+    ),
+)
+
 _SAFE_FIREWALL_DOCUMENTATION_MARKERS: tuple[str, ...] = (
     "hard-refused",
     "hard refused",
@@ -348,6 +365,22 @@ def _scan_lines_for_findings(
                             rule_id=f"adr0023_legacy_data_lib:{dep_lib}",
                             line_number=lineno,
                             message=f"ADR-0023 legacy data library {dep_lib!r} referenced; migrate to pinned alpaca-py/SIP or FMP",
+                        )
+                    )
+            for rule_id, pat in _PAPER_SELF_INVENTION_PATTERNS:
+                if pat.search(line) and not _line_is_negated(
+                    line, (*_SAFE_FIREWALL_DOCUMENTATION_MARKERS, "never self-invent", "zero paper self-invention")
+                ):
+                    findings.append(
+                        RedTeamFinding(
+                            severity="P1",
+                            vuln_class="supply_chain_and_unpinned_action",
+                            rule_id=f"adr0050_paper_self_invention:{rule_id}",
+                            line_number=lineno,
+                            message=(
+                                f"Paper self-invention / from-scratch engine directive ({rule_id}); "
+                                "use cleanly installed SOTA frameworks + official paper repos tested E2E on historical data"
+                            ),
                         )
                     )
     return findings
